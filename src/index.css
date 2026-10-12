@@ -1,0 +1,145 @@
+@import 'tailwindcss';
+
+/*
+ * CertiPass design tokens — a calm pastel workspace.
+ * Powder-blue outer background, light grey content area, white panels with
+ * thin borders, and four pastels (lavender, pale blue, pale yellow, blush)
+ * for highlights and status.
+ *
+ * The neutral, navy, lavender and "terracotta" scales keep their names from
+ * the earlier design so every component picks up the new palette; the
+ * terracotta scale now holds the blush / rose tones used for attention.
+ */
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
+  --font-serif: 'Inter', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  /* Surfaces */
+  --color-sky: #dceff7;
+  --color-sky-50: #eef7fb;
+  --color-sky-200: #c8e5f2;
+  --color-sky-500: #6fb0cc;
+  --color-sky-700: #2c6682;
+  --color-ivory: #f7f8fa;
+  --color-parchment: #f1f3f6;
+  --color-parchment-deep: #e6e9ed;
+  --color-line: #e6e9ed;
+  --color-line-strong: #d3d8df;
+
+  /* Text */
+  --color-ink: #20242b;
+  --color-ink-soft: #4b525d;
+  --color-ink-muted: #707782;
+
+  /* Slate (primary) */
+  --color-navy-950: #1a1e25;
+  --color-navy-900: #20242b;
+  --color-navy-800: #34445c;
+  --color-navy-700: #4a5c78;
+  --color-navy-600: #66778f;
+  --color-navy-100: #e1e6ed;
+  --color-navy-50: #f0f3f7;
+
+  /* Lavender */
+  --color-lavender-50: #f7f3fd;
+  --color-lavender-100: #efe8fb;
+  --color-lavender-200: #e0d4f7;
+  --color-lavender-300: #cbb8f2;
+  --color-lavender-500: #9a7fd6;
+  --color-lavender-700: #5d4699;
+
+  /* Blush / rose (attention) */
+  --color-terracotta-50: #fdf4f8;
+  --color-terracotta-100: #f5d7e7;
+  --color-terracotta-300: #ebb5cf;
+  --color-terracotta-500: #c2578a;
+  --color-terracotta-600: #a8437a;
+  --color-terracotta-700: #8c3564;
+
+  /* Pale yellow */
+  --color-butter-50: #fff6e3;
+  --color-butter-200: #ffe2ad;
+  --color-butter-500: #e3ab45;
+  --color-butter-700: #855a0a;
+
+  --radius-md: 0.625rem;
+
+  --shadow-paper: 0 1px 2px rgb(32 36 43 / 0.03);
+  --shadow-lift: 0 12px 32px -12px rgb(32 36 43 / 0.18);
+  --shadow-frame: 0 20px 50px -24px rgb(52 68 92 / 0.28);
+
+  --animate-fade-in: fade-in 180ms ease-out;
+  --animate-slide-up: slide-up 220ms cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-sky font-sans text-ink;
+    font-size: 14px;
+    line-height: 1.5;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  ::selection {
+    background: var(--color-lavender-200);
+    color: var(--color-navy-900);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-lavender-500);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  /* Small uppercase label, used for section kickers and table headings. */
+  .label-archival {
+    @apply text-[11px] font-semibold tracking-[0.06em] text-ink-muted uppercase;
+  }
+  /* Page and section titles. */
+  .display {
+    @apply font-sans font-semibold tracking-[-0.02em] text-ink;
+  }
+  .display em {
+    font-style: normal;
+  }
+  /* Headings that used the journal serif are now compact semibold sans. */
+  .font-serif {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .font-serif em,
+  em.font-serif {
+    font-style: normal;
+  }
+  /* Standard white panel. */
+  .paper {
+    @apply rounded-xl border border-line bg-white shadow-paper;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
