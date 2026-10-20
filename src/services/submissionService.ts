@@ -1,15 +1,18 @@
 /*
  * Certificate submission & management — mock service.
  *
- * Drafts, submission, duplicate detection, and edit-and-resubmit. Every
- * function takes the authenticated student's id and only reads or changes
- * that student's drafts and achievements. Records live in the prototype
- * store (browser only); nothing is sent to a server and no file is uploaded.
+ * Drafts, submission, duplicate detection, and editing. Every function takes
+ * the authenticated student's id and only reads or changes that student's
+ * drafts and achievements. Records live in the prototype store (browser
+ * only); nothing is sent to a server and no file is uploaded.
+ *
+ * A submitted record is part of the register immediately: there is no
+ * approval step and no reviewer to wait for.
  *
  * A backend implementing the same functions replaces this module later; it
  * must re-validate input and enforce ownership server-side.
  */
-import { canStudentEdit } from '../domain/status'
+import { canStudentEdit, MAX_NOTE_LENGTH } from '../domain/status'
 import type {
   Achievement,
   AchievementCategory,
@@ -151,7 +154,8 @@ function assertValid(form: AchievementFormData, hasCertificate: boolean) {
 
 /**
  * Create a new achievement with status "submitted" and remove the draft it
- * came from, if any. The student can never choose the status.
+ * came from, if any. The student can never choose the status, and the record
+ * is visible to their department's faculty from this moment on.
  */
 export async function submitAchievement(
   studentId: string,
@@ -188,7 +192,7 @@ export async function submitAchievement(
         userId: studentId,
         achievementId: achievement.id,
         title: 'Certificate submitted',
-        body: `${achievement.eventName} (${achievement.reference}) is waiting for faculty review.`,
+        body: `${achievement.eventName} (${achievement.reference}) has been added to your passport.`,
         createdAt: now,
         read: false,
         tone: 'info',
@@ -200,21 +204,25 @@ export async function submitAchievement(
   return { achievement, reference: achievement.reference }
 }
 
-// ── Edit & resubmit ──────────────────────────────────────────────────────────
+// ── Editing ──────────────────────────────────────────────────────────────────
 
+/**
+ * A student's own record, when it can still be corrected. Archived records
+ * are read-only: only the records office can bring one back.
+ */
 function editableAchievement(studentId: string, achievementId: string): Achievement {
   const current = getState().achievements.find((a) => a.id === achievementId && a.studentId === studentId)
   if (!current) throw new PassportError('not_found', 'This achievement could not be found.')
   if (!canStudentEdit(current.status)) {
-    throw new SubmissionError('not_editable', 'Only achievements that need attention can be edited and resubmitted.')
+    throw new SubmissionError('not_editable', 'This record has been archived by the Office of Academic Records, so it can no longer be edited.')
   }
   return current
 }
 
 /**
- * Save corrected details (and optionally a replacement certificate) on a
- * record that needs attention, without resubmitting it. Id, reference,
- * submission date, status, comments and history are all preserved.
+ * Save corrected details (and optionally a replacement certificate) quietly,
+ * without adding a history entry. Id, reference, submission date, status,
+ * comments and history are all preserved.
  */
 export async function updateAchievement(
   studentId: string,
@@ -232,15 +240,15 @@ export async function updateAchievement(
 }
 
 /**
- * Apply corrections and send the record back to faculty. The status becomes
- * "submitted" (never a reviewer status), a "resubmitted" entry is appended to
- * the existing history, and earlier comments stay in place.
+ * Save an edited record. The record stays submitted, an "updated" entry is
+ * appended to the existing history, and earlier comments stay in place.
+ * Nothing is sent for approval, because nothing needs approving.
  */
-export async function resubmitAchievement(
+export async function updateAndRecordEdit(
   studentId: string,
   achievementId: string,
   formData: AchievementFormData,
-  options: { certificate?: CertificateFile; noteToReviewer?: string } = {},
+  options: { certificate?: CertificateFile; note?: string } = {},
 ): Promise<SubmissionResult> {
   await delay(700)
   simulateFailureIfRequested()
@@ -250,20 +258,22 @@ export async function resubmitAchievement(
   assertValid(form, true)
 
   const now = new Date().toISOString()
-  const note = options.noteToReviewer?.trim().slice(0, 1000)
+  const note = options.note?.trim().slice(0, MAX_NOTE_LENGTH)
   const updated: Achievement = {
     ...current,
     ...fieldsFromForm(form),
     certificate: options.certificate ?? current.certificate,
-    status: 'submitted',
     updatedAt: now,
     // Earlier history and comments are kept; this only appends.
     history: [
       ...current.history,
-      { status: 'submitted', fromStatus: current.status, at: now, byName: student.fullName, actorId: student.id, actorRole: 'student', kind: 'resubmitted', note },
+      { status: current.status, fromStatus: current.status, at: now, byName: student.fullName, actorId: student.id, actorRole: 'student', kind: 'updated', note },
     ],
     comments: note
-      ? [...current.comments, { id: createId('cmt'), authorId: student.id, authorName: student.fullName, authorRole: 'student', body: note, createdAt: now, type: 'review_update' }]
+      ? [
+          ...current.comments,
+          { id: createId('cmt'), authorId: student.id, authorName: student.fullName, authorRole: 'student', body: note, createdAt: now, type: 'note' as const },
+        ]
       : current.comments,
   }
   setState((s) => ({
@@ -275,11 +285,11 @@ export async function resubmitAchievement(
         userId: studentId,
         achievementId: updated.id,
         title: 'Achievement updated',
-        body: `${updated.eventName} (${updated.reference}) was resubmitted for review.`,
+        body: `${updated.eventName} (${updated.reference}) was updated.`,
         createdAt: now,
         read: false,
         tone: 'info',
-        type: 'resubmitted',
+        type: 'updated',
       },
       ...s.notifications,
     ],

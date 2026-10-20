@@ -1,5 +1,4 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { isAwaitingReview } from '../domain/status'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { LogOut, Menu, ShieldAlert, X } from 'lucide-react'
 import { Logo, LogoMark } from '../components/Logo'
@@ -7,11 +6,10 @@ import { Spinner } from '../components/ui/States'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { INSTITUTION_NAME } from '../data/mockData'
-import { useAchievements, useNotifications, useRequiredUser, useUsers } from '../hooks/useData'
+import { useNotifications, useRequiredUser } from '../hooks/useData'
 import { cn } from '../lib/cn'
 import { initials } from '../lib/format'
 import { homePathFor } from '../services/auth'
-import { getFacultyAchievements } from '../services/reviewService'
 import { NAVIGATION, ROLE_LABEL } from './navigation'
 import type { AccessDeniedState } from './RequireRole'
 import type { NavItem } from './navigation'
@@ -39,16 +37,10 @@ export function AppShell() {
   const mainRef = useRef<HTMLElement>(null)
   const deniedPath = (location.state as AccessDeniedState | null)?.deniedPath
   const notifications = useNotifications()
-  const achievements = useAchievements()
-  const users = useUsers()
 
   const badges = useMemo(
-    () => ({
-      unreadNotifications: notifications.filter((n) => n.userId === user.id && !n.read).length,
-      // Submitted or under review, within this reviewer's departments only.
-      reviewQueue: user.role === 'faculty' ? getFacultyAchievements(user.id, achievements, users).filter((a) => isAwaitingReview(a.status)).length : 0,
-    }),
-    [notifications, achievements, users, user.id, user.role],
+    () => ({ unreadNotifications: notifications.filter((n) => n.userId === user.id && !n.read).length }),
+    [notifications, user.id],
   )
 
   useEffect(() => {
@@ -134,7 +126,7 @@ export function AppShell() {
                   {badge > 0 && (
                     <span className={cn('rounded-full px-1.5 text-[11px] font-semibold text-ink tabular-nums', isActive ? 'bg-white' : 'bg-butter-200')}>
                       {badge}
-                      <span className="sr-only"> {item.badgeKey === 'reviewQueue' ? 'awaiting review' : 'unread'}</span>
+                      <span className="sr-only"> unread</span>
                     </span>
                   )}
                 </Link>

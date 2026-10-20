@@ -14,12 +14,13 @@ import { useToast } from '../context/ToastContext'
 import { CATEGORY_OPTIONS, STATUS_OPTIONS } from '../hooks/useAchievementFilters'
 import { useAchievements, useUsers } from '../hooks/useData'
 import { downloadCsv, fileDate } from '../lib/csv'
+import { batchLabel } from '../domain/batch'
 import { formatDate, ordinalYear } from '../lib/format'
 import { categoryLabel } from '../services/achievementValidation'
 import { exportFilteredAchievements, getAdminRecords, RECORD_SORT_OPTIONS } from '../services/adminService'
 import type { AdminRecordRow, RecordSort } from '../services/adminService'
 import { useStore } from '../services/store'
-import type { AchievementCategory, SubmissionStatus } from '../types'
+import type { AchievementCategory, RecordStatus } from '../types'
 
 export default function AdminRecordsPage() {
   const achievements = useAchievements()
@@ -30,7 +31,7 @@ export default function AdminRecordsPage() {
   const [params] = useSearchParams()
   const sortId = useId()
   const [query, setQuery] = useState(params.get('q') ?? '')
-  const [status, setStatus] = useState<SubmissionStatus | 'all'>('all')
+  const [status, setStatus] = useState<RecordStatus | 'all'>('all')
   const [department, setDepartment] = useState('all')
   const [year, setYear] = useState('all')
   const [category, setCategory] = useState<AchievementCategory | 'all'>('all')
@@ -94,7 +95,7 @@ export default function AdminRecordsPage() {
     },
     { key: 'submitted', header: 'Submitted', render: (r) => <time dateTime={r.achievement.submittedAt} className="whitespace-nowrap text-ink-soft">{formatDate(r.achievement.submittedAt)}</time>, hideBelow: 'lg' },
     { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.achievement.status} />, hideBelow: 'sm' },
-    { key: 'reviewer', header: 'Reviewer', render: (r) => <span className="block max-w-[150px] truncate text-ink-soft">{r.reviewerName || <span className="text-ink-muted">Not yet assigned</span>}</span>, hideBelow: 'lg' },
+    { key: 'batch', header: 'Batch', render: (r) => <span className="whitespace-nowrap text-ink-soft">{batchLabel(r.batch)}</span>, hideBelow: 'lg' },
   ]
 
   return (
@@ -102,7 +103,7 @@ export default function AdminRecordsPage() {
       <PageHeader
         kicker={`Administration · ${achievements.length} submitted records`}
         title="Achievement Records"
-        description="The register of every submitted achievement across departments. Open a record to see its details, certificate, comments and review history. Records are read-only here: verification stays with faculty."
+        description="The register of every submitted achievement across departments. Open a record to see its details, certificate, comments and history. Records can be archived here, which keeps them in full but leaves them out of active lists and reports."
         actions={
           <Button variant="secondary" onClick={exportCsv} icon={<Download className="size-4" aria-hidden />}>
             Export CSV
@@ -112,7 +113,7 @@ export default function AdminRecordsPage() {
       <FilterBar active={active} onReset={reset} resultLabel={`${rows.length} of ${achievements.length} records`}>
         <SearchInput value={query} onChange={setQuery} placeholder="Student, register no., event, reference…" className="md:w-72" label="Search records" />
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:flex">
-          <FilterSelect label="Status" value={status} onChange={setStatus} options={STATUS_OPTIONS} className="md:w-40" />
+          <FilterSelect label="Record state" value={status} onChange={setStatus} options={STATUS_OPTIONS} className="md:w-40" />
           <FilterSelect label="Department" value={department} onChange={setDepartment} options={[{ value: 'all', label: 'All departments' }, ...departments.map((d) => ({ value: d, label: d }))]} className="md:w-40" />
           <FilterSelect label="Year" value={year} onChange={setYear} options={[{ value: 'all', label: 'All years' }, ...[1, 2, 3, 4].map((y) => ({ value: String(y), label: `Year ${ordinalYear(y)}` }))]} className="md:w-32" />
           <FilterSelect label="Category" value={category} onChange={setCategory} options={CATEGORY_OPTIONS} className="md:w-40" />

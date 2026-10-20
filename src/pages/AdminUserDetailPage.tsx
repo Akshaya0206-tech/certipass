@@ -14,10 +14,10 @@ import { useAcademicConfig } from '../hooks/useAcademics'
 import { useAchievements, useUsers } from '../hooks/useData'
 import { formatDate, formatDateTime, initials, YEAR_LABEL } from '../lib/format'
 import { activeDepartments, activeSections, departmentName } from '../services/academicService'
-import { ADMIN_EDITABLE, getFacultyReviewActivity, updateUserByAdmin, validateUserEdit } from '../services/adminService'
+import { ADMIN_EDITABLE, updateUserByAdmin, validateUserEdit } from '../services/adminService'
 import type { UserEdit } from '../services/adminService'
 import { getAdminOverview } from '../services/analyticsService'
-import { reviewScope } from '../services/reviewService'
+import { facultyScope, getFacultyRecordSummary } from '../services/facultyService'
 import { useStore } from '../services/store'
 import type { User } from '../types'
 import { RoleTag } from './UserManagementPage'
@@ -28,7 +28,7 @@ const toEdit = (u: User): UserEdit => ({
   year: u.role === 'student' ? String(u.year) : '',
   section: u.role === 'student' ? u.section : '',
   designation: u.role !== 'student' ? u.designation : '',
-  reviewDepartments: u.role === 'faculty' ? reviewScope(u) : [],
+  reviewDepartments: u.role === 'faculty' ? facultyScope(u) : [],
 })
 
 export default function AdminUserDetailPage() {
@@ -47,7 +47,12 @@ export default function AdminUserDetailPage() {
 
   const records = useMemo(() => (user?.role === 'student' ? achievements.filter((a) => a.studentId === user.id).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)) : []), [achievements, user])
   const counts = useMemo(() => getAdminOverview([], records), [records])
-  const reviewActivity = useMemo(() => (user?.role === 'faculty' ? getFacultyReviewActivity(user, achievements) : []), [user, achievements])
+  // For a faculty account: the records their departments hold. They oversee
+  // these records; they never had to approve them.
+  const scopeSummary = useMemo(
+    () => (user?.role === 'faculty' ? getFacultyRecordSummary(user.id, achievements, users) : null),
+    [user, achievements, users],
+  )
   const accountHistory = useMemo(() => audit.filter((e) => e.targetUserId === id), [audit, id])
 
   if (!user) {
@@ -101,7 +106,7 @@ export default function AdminUserDetailPage() {
   if (user.role === 'student') {
     rows.push(['Register number', <span key="reg" className="font-mono">{user.registerNumber}</span>], ['Department', departmentName(user.department, config)], ['Year', YEAR_LABEL[user.year]], ['Section', user.section])
   } else if (user.role === 'faculty') {
-    rows.push(['Department', departmentName(user.department, config)], ['Designation', user.designation], ['Reviews departments', reviewScope(user).join(', ')])
+    rows.push(['Department', departmentName(user.department, config)], ['Designation', user.designation], ['Departments covered', facultyScope(user).join(', ')])
   } else {
     rows.push(['Office', user.department], ['Designation', user.designation])
   }
@@ -181,7 +186,7 @@ export default function AdminUserDetailPage() {
               )}
               {user.role === 'faculty' && (
                 <fieldset>
-                  <legend className="mb-2 text-[13px] font-medium text-ink-soft">Reviews submissions from</legend>
+                  <legend className="mb-2 text-[13px] font-medium text-ink-soft">Covers students from</legend>
                   <div className="flex flex-wrap gap-x-4 gap-y-2">
                     {config.departments.map((d) => (
                       <label key={d.code} className="inline-flex items-center gap-2 text-sm text-ink-soft">
@@ -243,10 +248,10 @@ export default function AdminUserDetailPage() {
               <dl className="mb-4 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-4">
                 {(
                   [
-                    ['Submitted', counts.totalRecords],
-                    ['Verified', counts.verified],
-                    ['Pending', counts.pendingVerification],
-                    ['Needs attention', counts.needsAttention],
+                    ['Records', counts.totalRecords],
+                    ['Winner', counts.winner],
+                    ['Runner-up', counts.runner_up],
+                    ['Participant', counts.participant],
                   ] as const
                 ).map(([k, v]) => (
                   <div key={k} className="bg-white px-4 py-3">
@@ -285,27 +290,37 @@ export default function AdminUserDetailPage() {
           )}
 
           {user.role === 'faculty' && (
-            <section aria-labelledby="review-heading">
-              <h2 id="review-heading" className="label-archival mb-3">Review activity</h2>
+            <section aria-labelledby="scope-heading">
+              <h2 id="scope-heading" className="label-archival mb-3">Records covered</h2>
               <p className="mb-3 text-[13px] text-ink-muted">
-                {reviewActivity.length} recorded {reviewActivity.length === 1 ? 'action' : 'actions'}, taken from the records’ status history.
+                Achievement records belonging to students in {facultyScope(user).join(' and ')}. This account can read and report on them; it does not approve
+                them.
               </p>
-              {reviewActivity.length === 0 ? (
-                <p className="rounded-md border border-dashed border-line-strong px-4 py-4 text-sm text-ink-muted">No review actions recorded for this account yet.</p>
+              {!scopeSummary || scopeSummary.total === 0 ? (
+                <p className="rounded-md border border-dashed border-line-strong px-4 py-4 text-sm text-ink-muted">
+                  No achievement records in this account’s departments yet.
+                </p>
               ) : (
-                <ul className="paper divide-y divide-line">
-                  {reviewActivity.slice(0, 8).map((r, i) => (
-                    <li key={`${r.achievementId}-${r.at}-${i}`} className="px-4 py-3 text-[13.5px]">
-                      <span className="font-medium text-navy-900">{r.action}</span>{' '}
-                      <Link to={`/admin/records/${r.achievementId}`} className="text-ink-soft underline decoration-line-strong underline-offset-2 hover:text-navy-900">
-                        {r.eventName}
-                      </Link>
-                      <p className="text-[12px] text-ink-muted">
-                        <span className="font-mono">{r.reference}</span> · {formatDateTime(r.at)}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-4">
+                    {(
+                      [
+                        ['Records', scopeSummary.total],
+                        ['Winner', scopeSummary.winner],
+                        ['Runner-up', scopeSummary.runner_up],
+                        ['Students', scopeSummary.studentsWithRecords],
+                      ] as const
+                    ).map(([k, v]) => (
+                      <div key={k} className="bg-white px-4 py-3">
+                        <dt className="text-[12px] text-ink-muted">{k}</dt>
+                        <dd className="font-serif text-xl text-navy-900 tabular-nums">{v}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <p className="mt-2 text-[12px] text-ink-muted">
+                    {scopeSummary.studentsWithRecords} of {scopeSummary.students} students in these departments have at least one record.
+                  </p>
+                </>
               )}
             </section>
           )}

@@ -5,9 +5,9 @@
  */
 import { useState } from 'react'
 import type { ReactNode } from 'react'
+import { RESULT_GROUPS } from '../../domain/result'
+import type { ResultGroup } from '../../domain/result'
 import { cn } from '../../lib/cn'
-import { STATUS_META } from '../ui/StatusBadge'
-import type { SubmissionStatus } from '../../types'
 
 interface ChartFrameProps {
   title: string
@@ -158,17 +158,21 @@ export function ColumnChart({ data }: { data: { key: string; label: string; coun
   )
 }
 
-const STATUS_FILL: Record<SubmissionStatus, string> = {
-  verified: 'bg-sky-500',
-  under_review: 'bg-lavender-500',
-  submitted: 'bg-butter-500',
-  needs_attention: 'bg-terracotta-500',
+const RESULT_FILL: Record<ResultGroup, string> = {
+  winner: 'bg-navy-800',
+  runner_up: 'bg-lavender-500',
+  participant: 'bg-sky-500',
+  other: 'bg-butter-500',
 }
 
-/** Part-to-whole status split: one 100% bar with 2px gaps and a labelled legend (icon + count + share). */
-export function StatusSplit({ data }: { data: { status: SubmissionStatus; count: number }[] }) {
+/**
+ * Part-to-whole split by recorded achievement result: one 100% bar with 2px
+ * gaps and a labelled legend (count + share). The groups are results the
+ * students recorded, never approval states.
+ */
+export function ResultSplit({ data }: { data: { group: ResultGroup; count: number }[] }) {
   const total = data.reduce((s, d) => s + d.count, 0) || 1
-  const [hover, setHover] = useState<SubmissionStatus | null>(null)
+  const [hover, setHover] = useState<ResultGroup | null>(null)
   return (
     <div aria-hidden>
       <div className="flex h-7 gap-[2px] overflow-hidden rounded-md">
@@ -176,55 +180,53 @@ export function StatusSplit({ data }: { data: { status: SubmissionStatus; count:
           .filter((d) => d.count > 0)
           .map((d) => (
             <div
-              key={d.status}
-              className={cn('h-full transition-opacity', STATUS_FILL[d.status], hover && hover !== d.status && 'opacity-35')}
+              key={d.group}
+              className={cn('h-full transition-opacity', RESULT_FILL[d.group], hover && hover !== d.group && 'opacity-35')}
               style={{ width: `${(d.count / total) * 100}%` }}
-              onMouseEnter={() => setHover(d.status)}
+              onMouseEnter={() => setHover(d.group)}
               onMouseLeave={() => setHover(null)}
             />
           ))}
       </div>
       <ul className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3">
-        {data.map((d) => {
-          const Icon = STATUS_META[d.status].icon
-          return (
-            <li key={d.status} className="flex items-start gap-2 text-[13px]" onMouseEnter={() => setHover(d.status)} onMouseLeave={() => setHover(null)}>
-              <span className={cn('mt-1 size-2.5 shrink-0 rounded-sm', STATUS_FILL[d.status])} />
-              <span>
-                <span className="flex items-center gap-1 text-ink-soft">
-                  <Icon className="size-3.5" />
-                  {STATUS_META[d.status].label}
-                </span>
-                <span className="font-serif text-[15px] text-navy-900 tabular-nums">{d.count}</span>
-                <span className="ml-1.5 text-[12px] text-ink-muted">{Math.round((d.count / total) * 100)}%</span>
-              </span>
-            </li>
-          )
-        })}
+        {data.map((d) => (
+          <li key={d.group} className="flex items-start gap-2 text-[13px]" onMouseEnter={() => setHover(d.group)} onMouseLeave={() => setHover(null)}>
+            <span className={cn('mt-1 size-2.5 shrink-0 rounded-sm', RESULT_FILL[d.group])} />
+            <span>
+              <span className="block text-ink-soft">{RESULT_GROUPS[d.group].label}</span>
+              <span className="font-serif text-[15px] text-navy-900 tabular-nums">{d.count}</span>
+              <span className="ml-1.5 text-[12px] text-ink-muted">{Math.round((d.count / total) * 100)}%</span>
+            </span>
+          </li>
+        ))}
       </ul>
     </div>
   )
 }
 
-/** Per-department total with the verified share filled inside it. */
-export function DepartmentBars({ data }: { data: { code: string; total: number; verified: number }[] }) {
+/** Per-department record total, with the winners' share filled inside it. */
+export function DepartmentBars({ data }: { data: { code: string; total: number; winners: number }[] }) {
   const max = Math.max(1, ...data.map((d) => d.total))
   return (
     <div aria-hidden>
       <div className="mb-3 flex gap-4 text-[12px] text-ink-soft">
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-4 rounded-sm bg-sky-500" /> Verified</span>
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-4 rounded-sm border border-lavender-300 bg-lavender-100" /> All submissions</span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-4 rounded-sm bg-navy-800" /> Winners
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-4 rounded-sm border border-lavender-300 bg-lavender-100" /> All records
+        </span>
       </div>
       <ul className="space-y-2.5">
         {data.map((d) => (
-          <li key={d.code} className="grid grid-cols-[44px_1fr_64px] items-center gap-3 text-[13px]" title={`${d.code}: ${d.verified} verified of ${d.total}`}>
+          <li key={d.code} className="grid grid-cols-[44px_1fr_64px] items-center gap-3 text-[13px]" title={`${d.code}: ${d.winners} won of ${d.total}`}>
             <span className="font-mono text-[12px] text-ink-soft">{d.code}</span>
             <span className="relative h-[16px]">
               <span className="absolute inset-y-0 left-0 rounded-r-[4px] border border-lavender-300 bg-lavender-100" style={{ width: `${(d.total / max) * 100}%` }} />
-              <span className="absolute inset-y-[3px] left-0 rounded-r-[3px] bg-sky-500" style={{ width: `${(d.verified / max) * 100}%` }} />
+              <span className="absolute inset-y-[3px] left-0 rounded-r-[3px] bg-navy-800" style={{ width: `${(d.winners / max) * 100}%` }} />
             </span>
             <span className="text-right text-ink tabular-nums">
-              {d.verified}
+              {d.winners}
               <span className="text-ink-muted"> / {d.total}</span>
             </span>
           </li>

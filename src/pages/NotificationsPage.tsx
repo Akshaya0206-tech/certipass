@@ -30,7 +30,7 @@ export default function NotificationsPage() {
       <PageHeader
         kicker={unread ? `${unread} unread` : 'All caught up'}
         title="Notifications"
-        description="Updates about your achievements: submissions, reviewer requests and verifications. In-app only — nothing is emailed."
+        description="Updates about your achievements: submissions, your own edits, and comments from your department’s faculty. In-app only — nothing is emailed."
         actions={
           <Button variant="secondary" size="sm" disabled={!unread} onClick={() => markAllNotificationsAsRead(student.id)} icon={<CheckCheck className="size-4" aria-hidden />}>
             Mark all as read
@@ -58,7 +58,7 @@ export default function NotificationsPage() {
           <EmptyState
             icon={BellOff}
             title={filter === 'unread' ? 'You’re all caught up' : 'No notifications yet'}
-            body={filter === 'unread' ? 'There are no unread notifications.' : 'You’ll be notified here when you submit an achievement and when a reviewer responds.'}
+            body={filter === 'unread' ? 'There are no unread notifications.' : 'You’ll be notified here when you submit an achievement and when faculty comment on one.'}
             action={filter === 'unread' && mine.length > 0 ? <Button variant="secondary" onClick={() => setFilter('all')}>Show all notifications</Button> : undefined}
           />
         </div>

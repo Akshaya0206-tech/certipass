@@ -8,9 +8,11 @@
  * Prototype note: scoping here is enforced in the browser. A real backend
  * must enforce the same rule server-side (e.g. row-level security).
  */
-import { bucketOf } from '../domain/status'
+import { countByResult, resultGroupOf } from '../domain/result'
+import type { ResultCounts, ResultGroup } from '../domain/result'
+import { activeRecords } from '../domain/status'
 import { isKnownDepartment, isKnownSection } from './academicService'
-import type { Achievement, AchievementCategory, AppNotification, StudentUser, SubmissionStatus, User } from '../types'
+import type { Achievement, AchievementCategory, AppNotification, RecordStatus, StudentUser, User } from '../types'
 import { filterAchievements } from './achievementService'
 import { delay, getState, setState } from './store'
 
@@ -82,7 +84,9 @@ export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 export interface PassportFilters {
   query?: string
   category?: AchievementCategory | 'all'
-  status?: SubmissionStatus | 'all'
+  status?: RecordStatus | 'all'
+  /** Recorded achievement result group, e.g. only winners. */
+  result?: ResultGroup | 'all'
   year?: string
   /** Inclusive event-date range, YYYY-MM-DD. */
   from?: string
@@ -117,38 +121,33 @@ export function searchAchievements(studentId: string, filters: PassportFilters, 
     query: filters.query,
     category: filters.category,
     status: filters.status,
+    result: filters.result,
     year: filters.year,
   }).filter((a) => (!filters.from || a.eventDate >= filters.from) && (!filters.to || a.eventDate <= filters.to))
   return sortAchievements(matched, filters.sort)
 }
 
-export interface AchievementSummary {
-  total: number
-  verified: number
-  /** submitted + under review: waiting on faculty. */
-  inReview: number
-  submitted: number
-  underReview: number
-  /** Waiting on the student. */
-  needsAttention: number
+export interface AchievementSummary extends ResultCounts {
+  /** Archived records. Not part of the result counts above. */
+  archived: number
 }
 
-/** Each record counts in exactly one of verified / inReview / needsAttention. */
+/**
+ * The student's own figures, by the result they recorded, so
+ * winner + runner_up + participant + other = total. Drafts are a separate
+ * collection and are never counted here.
+ */
 export function getAchievementSummary(studentId: string, all: Achievement[] = source()): AchievementSummary {
   const mine = getMyAchievements(studentId, all)
-  const summary: AchievementSummary = { total: mine.length, verified: 0, inReview: 0, submitted: 0, underReview: 0, needsAttention: 0 }
-  for (const a of mine) {
-    summary[bucketOf(a.status)]++
-    if (a.status === 'submitted') summary.submitted++
-    if (a.status === 'under_review') summary.underReview++
-  }
-  return summary
+  const active = activeRecords(mine)
+  return { ...countByResult(active), archived: mine.length - active.length }
 }
 
 export interface TimelineYear {
   year: string
   entries: Achievement[]
-  verified: number
+  /** Entries in this year whose recorded result is Winner. */
+  wins: number
 }
 
 /** Records grouped by event year (newest year first), each year ordered newest event first. */
@@ -162,14 +161,14 @@ export function groupByYear(list: Achievement[]): TimelineYear[] {
     const y = a.eventDate.slice(0, 4)
     groups.set(y, [...(groups.get(y) ?? []), a])
   }
-  return [...groups.entries()].map(([year, entries]) => ({ year, entries, verified: entries.filter((e) => e.status === 'verified').length }))
+  return [...groups.entries()].map(([year, entries]) => ({ year, entries, wins: entries.filter((e) => resultGroupOf(e) === 'winner').length }))
 }
 
 export function eventYearsOf(list: Achievement[]) {
   return [...new Set(list.map((a) => a.eventDate.slice(0, 4)))].sort().reverse()
 }
 
-export type ActivityType = 'submitted' | 'resubmitted' | 'review_started' | 'review_reopened' | 'correction_requested' | 'verified' | 'returned' | 'comment'
+export type ActivityType = 'submitted' | 'updated' | 'archived' | 'restored' | 'comment'
 
 export interface ActivityItem {
   id: string
@@ -184,53 +183,32 @@ export interface ActivityItem {
 
 const ACTIVITY_LABEL: Record<ActivityType, string> = {
   submitted: 'Certificate submitted',
-  resubmitted: 'Achievement updated and resubmitted',
-  review_started: 'Review started',
-  review_reopened: 'Review reopened by faculty',
-  correction_requested: 'Faculty requested clarification',
-  verified: 'Certificate verified',
-  returned: 'Returned to the review queue',
+  updated: 'Achievement details updated',
+  archived: 'Record archived by the records office',
+  restored: 'Record restored by the records office',
   comment: 'Faculty comment',
 }
 
 function activityType(e: Achievement['history'][number]): ActivityType {
-  if (e.kind === 'resubmitted') return 'resubmitted'
-  if (e.kind === 'submitted') return 'submitted'
-  switch (e.status) {
-    case 'under_review':
-      return e.fromStatus === 'verified' ? 'review_reopened' : 'review_started'
-    case 'needs_attention':
-      return 'correction_requested'
-    case 'verified':
-      return 'verified'
-    default:
-      return 'returned'
-  }
+  if (e.kind === 'updated') return 'updated'
+  if (e.kind === 'archived') return 'archived'
+  if (e.kind === 'restored') return 'restored'
+  return 'submitted'
 }
 
 /**
- * Activity feed built from each record's own status history and faculty
- * comments, so it can never contradict a record's actual status.
- * (Correction requests already include the reviewer's note, so the comment
- * posted alongside one isn't listed twice.)
+ * Activity feed built from each record's own history and the comments
+ * faculty left on it, so it can never contradict what the record says.
  */
 export function getRecentActivity(studentId: string, all: Achievement[] = source(), limit = 8): ActivityItem[] {
   const items: ActivityItem[] = []
   for (const a of getMyAchievements(studentId, all)) {
     a.history.forEach((h, i) => {
       const type = activityType(h)
-      // A reviewer's reason is recorded on the history entry (older records only have it as a comment).
-      const reason =
-        h.kind === 'status' || h.kind === undefined
-          ? (h.note ?? (type === 'correction_requested' ? a.comments.find((c) => c.createdAt === h.at && c.authorRole !== 'student')?.body : undefined))
-          : undefined
-      items.push({ id: `${a.id}-h${i}`, type, label: ACTIVITY_LABEL[type], at: h.at, actor: h.byName, achievementId: a.id, eventName: a.eventName, excerpt: reason })
+      items.push({ id: `${a.id}-h${i}`, type, label: ACTIVITY_LABEL[type], at: h.at, actor: h.byName, achievementId: a.id, eventName: a.eventName, excerpt: h.note })
     })
     for (const c of a.comments) {
       if (c.authorRole === 'student') continue
-      // Comments posted as part of a review action are already shown with that action.
-      if (c.type === 'correction_request' || c.type === 'review_update') continue
-      if (a.history.some((h) => h.at === c.createdAt && h.kind === 'status')) continue
       items.push({ id: `${a.id}-${c.id}`, type: 'comment', label: ACTIVITY_LABEL.comment, at: c.createdAt, actor: c.authorName, achievementId: a.id, eventName: a.eventName, excerpt: c.body })
     }
   }
@@ -239,11 +217,14 @@ export function getRecentActivity(studentId: string, all: Achievement[] = source
 
 const RESULT_WEIGHT: Record<string, number> = { Winner: 5, 'Best Paper': 5, 'Best Project': 5, 'Runner-up': 4, Finalist: 3, Other: 2, Participant: 1 }
 
-/** The most notable verified achievement: highest result, then most recent. Null when nothing is verified. */
+/**
+ * The student's most notable achievement, chosen by the result they recorded
+ * and then by how recent it is. Null when they have no records yet.
+ */
 export function getFeaturedAchievement(studentId: string, all: Achievement[] = source()): Achievement | null {
-  const verified = getMyAchievements(studentId, all).filter((a) => a.status === 'verified')
-  if (!verified.length) return null
-  return [...verified].sort((a, b) => (RESULT_WEIGHT[b.achievementType] ?? 0) - (RESULT_WEIGHT[a.achievementType] ?? 0) || b.eventDate.localeCompare(a.eventDate))[0]
+  const mine = activeRecords(getMyAchievements(studentId, all))
+  if (!mine.length) return null
+  return [...mine].sort((a, b) => (RESULT_WEIGHT[b.achievementType] ?? 0) - (RESULT_WEIGHT[a.achievementType] ?? 0) || b.eventDate.localeCompare(a.eventDate))[0]
 }
 
 // ── Notifications ────────────────────────────────────────────────────────────
@@ -261,28 +242,4 @@ export function markNotificationAsRead(studentId: string, notificationId: string
 
 export function markAllNotificationsAsRead(studentId: string) {
   setState((s) => ({ ...s, notifications: s.notifications.map((n) => (n.userId === studentId && !n.read ? { ...n, read: true } : n)) }))
-}
-
-// ── Correction requests ──────────────────────────────────────────────────────
-
-export interface CorrectionRequest {
-  body: string
-  authorName: string
-  createdAt: string
-}
-
-/**
- * The reviewer's current correction request on a record that needs attention:
- * the reason recorded with the latest "needs attention" decision. Falls back
- * to the matching comment on older records. Undefined when nothing is pending.
- */
-export function getCorrectionRequest(a: Achievement): CorrectionRequest | undefined {
-  if (a.status !== 'needs_attention') return undefined
-  const decision = [...a.history].reverse().find((h) => h.status === 'needs_attention')
-  if (decision?.note) return { body: decision.note, authorName: decision.byName, createdAt: decision.at }
-  const comment =
-    [...a.comments].reverse().find((c) => c.type === 'correction_request') ??
-    [...a.comments].reverse().find((c) => c.authorRole !== 'student' && (!decision || c.createdAt <= decision.at)) ??
-    [...a.comments].reverse().find((c) => c.authorRole !== 'student')
-  return comment ? { body: comment.body, authorName: comment.authorName, createdAt: comment.createdAt } : undefined
 }

@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, CircleAlert, Eye, FilePen, FilePlus2, SearchX } from 'lucide-react'
+import { ArrowLeft, Eye, FilePen, FilePlus2, SearchX } from 'lucide-react'
 import { certificateSource, CertificatePreview } from '../components/CertificatePreview'
 import { CommentThread } from '../components/CommentThread'
 import { PassportLoader } from '../components/passport/PassportLoader'
@@ -13,7 +13,8 @@ import { useStudent } from '../hooks/useData'
 import { useMyAchievements } from '../hooks/usePassport'
 import { formatDate } from '../lib/format'
 import { categoryLabel } from '../services/achievementValidation'
-import { getAchievementById, getCorrectionRequest } from '../services/passportService'
+import { getAchievementById } from '../services/passportService'
+import { RECORD_STATUS_DEFINITIONS } from '../domain/status'
 
 export default function AchievementDetailPage() {
   return (
@@ -49,7 +50,6 @@ function Detail() {
 
   const meta = STATUS_META[a.status]
   const editable = canStudentEdit(a.status)
-  const latestRequest = getCorrectionRequest(a)
   const hasCertificate = !!certificateSource(a.certificate)
 
   return (
@@ -70,7 +70,7 @@ function Detail() {
           <div className="flex shrink-0 flex-wrap gap-2">
             {editable && (
               <ButtonLink to={`/student/achievements/${a.id}/edit`} variant="accent" icon={<FilePen className="size-4" aria-hidden />}>
-                Edit and Resubmit
+                Edit Achievement
               </ButtonLink>
             )}
             <a
@@ -86,21 +86,6 @@ function Detail() {
         </header>
       </div>
 
-      {latestRequest && (
-        <section aria-labelledby="request-heading" className="relative overflow-hidden rounded-xl border border-terracotta-100 bg-terracotta-50 p-4 pl-5">
-          <span className="absolute inset-y-0 left-0 w-1 bg-terracotta-500" aria-hidden />
-          <h2 id="request-heading" className="flex items-center gap-2 font-medium text-navy-900">
-            <CircleAlert className="size-4 text-terracotta-600" aria-hidden /> Clarification requested
-          </h2>
-          <blockquote className="mt-2 text-sm whitespace-pre-line text-ink-soft">“{latestRequest.body}”</blockquote>
-          <p className="mt-1 text-[12.5px] text-ink-muted">
-            {latestRequest.authorName} · {formatDate(latestRequest.createdAt)}
-          </p>
-          <p className="mt-3 text-[13px] text-ink-soft">
-            Update the details or replace the certificate, then resubmit. It will go back to the review queue.
-          </p>
-        </section>
-      )}
 
       <div className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
         <div className="min-w-0 space-y-8">
@@ -153,19 +138,13 @@ function Detail() {
         </div>
 
         <div className="space-y-8">
-          <section aria-labelledby="verify-heading" className="paper p-5">
-            <h2 id="verify-heading" className="label-archival mb-4">Verification</h2>
+          <section aria-labelledby="record-heading" className="paper p-5">
+            <h2 id="record-heading" className="label-archival mb-4">This record</h2>
             <div className="mb-5 flex items-start gap-3 rounded-md bg-parchment/60 p-3">
               <StatusBadge status={a.status} />
-              <p className="text-[13px] text-ink-soft">
-                {a.status === 'verified'
-                  ? 'Verified by faculty. Only reviewers can change a verification decision.'
-                  : a.status === 'needs_attention'
-                    ? 'Waiting on you. Edit and resubmit when you’re ready.'
-                    : 'Waiting on faculty. No action is needed from you.'}
-              </p>
+              <p className="text-[13px] text-ink-soft">{RECORD_STATUS_DEFINITIONS[a.status].description}</p>
             </div>
-            <h3 className="label-archival mb-3 text-[10px]">Status history</h3>
+            <h3 className="label-archival mb-3 text-[10px]">Record history</h3>
             <StatusHistory history={a.history} />
           </section>
 
@@ -177,9 +156,9 @@ function Detail() {
               achievementId={a.id}
               comments={a.comments}
               currentUser={student}
-              placeholder="Reply to your reviewer…"
+              placeholder="Ask your department’s faculty a question…"
             />
-            <p className="mt-2 text-[12px] text-ink-muted">Comments don’t change the verification status.</p>
+            <p className="mt-2 text-[12px] text-ink-muted">Comments are a conversation only — they don’t change the record.</p>
           </section>
         </div>
       </div>

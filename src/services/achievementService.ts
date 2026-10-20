@@ -1,5 +1,8 @@
 import { describeAchievement } from '../data/mockData'
-import type { Achievement, AchievementFilters, SubmissionStatus } from '../types'
+import { countByResult, resultGroupOf } from '../domain/result'
+import type { ResultCounts } from '../domain/result'
+import { activeRecords } from '../domain/status'
+import type { Achievement, AchievementFilters } from '../types'
 
 export { describeAchievement }
 
@@ -8,6 +11,7 @@ export function filterAchievements<T extends Achievement>(list: T[], filters: Ac
   return list.filter((a) => {
     if (filters.category && filters.category !== 'all' && a.category !== filters.category) return false
     if (filters.status && filters.status !== 'all' && a.status !== filters.status) return false
+    if (filters.result && filters.result !== 'all' && resultGroupOf(a) !== filters.result) return false
     if (filters.year && filters.year !== 'all' && !a.eventDate.startsWith(filters.year)) return false
     if (q) {
       const haystack = `${a.eventName} ${a.organizer} ${a.category} ${a.customCategory ?? ''} ${a.reference} ${a.achievementType} ${a.position ?? ''} ${a.certificate.fileName}`.toLowerCase()
@@ -25,24 +29,19 @@ export function sortBySubmittedDesc(list: Achievement[]) {
   return [...list].sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
 }
 
-export interface StatusSummary {
-  total: number
-  verified: number
-  submitted: number
-  underReview: number
-  needsAttention: number
+export interface RecordSummary extends ResultCounts {
+  /** Archived records. Not part of the result counts, which cover active records only. */
+  archived: number
 }
 
-/** total = all records; each other field counts records currently in that status. */
-export function summarize(list: Achievement[]): StatusSummary {
-  const count = (s: SubmissionStatus) => list.filter((a) => a.status === s).length
-  return {
-    total: list.length,
-    verified: count('verified'),
-    submitted: count('submitted'),
-    underReview: count('under_review'),
-    needsAttention: count('needs_attention'),
-  }
+/**
+ * Counts for a set of records, by the result the student recorded.
+ * The result counts cover active records only, so
+ * winner + runner_up + participant + other = total.
+ */
+export function summarize(list: Achievement[]): RecordSummary {
+  const active = activeRecords(list)
+  return { ...countByResult(active), archived: list.length - active.length }
 }
 
 export function eventYears(list: Achievement[]) {

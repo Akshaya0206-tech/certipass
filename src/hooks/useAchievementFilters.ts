@@ -1,12 +1,14 @@
 import { useCallback, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { STATUS_ORDER, statusLabel } from '../domain/status'
+import { RECORD_STATUS_ORDER, recordStatusLabel } from '../domain/status'
+import { RESULT_GROUPS, RESULT_GROUP_ORDER } from '../domain/result'
+import type { ResultGroup } from '../domain/result'
 import { SORT_OPTIONS } from '../services/passportService'
 import type { PassportFilters, SortKey } from '../services/passportService'
-import { ACHIEVEMENT_CATEGORIES, SUBMISSION_STATUSES } from '../types'
-import type { AchievementCategory, SubmissionStatus } from '../types'
+import { ACHIEVEMENT_CATEGORIES, RECORD_STATUSES } from '../types'
+import type { AchievementCategory, RecordStatus } from '../types'
 
-type Param = 'q' | 'category' | 'status' | 'year' | 'from' | 'to' | 'sort'
+type Param = 'q' | 'category' | 'status' | 'result' | 'year' | 'from' | 'to' | 'sort'
 const isDate = (v: string | null) => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v)
 
 export interface LibraryFilters extends Required<Omit<PassportFilters, 'from' | 'to'>> {
@@ -29,12 +31,14 @@ export function useAchievementFilters() {
   const filters = useMemo<LibraryFilters>(() => {
     const category = params.get('category')
     const status = params.get('status')
+    const result = params.get('result')
     const sort = params.get('sort')
     const year = params.get('year')
     return {
       query: params.get('q') ?? '',
       category: (ACHIEVEMENT_CATEGORIES as readonly string[]).includes(category ?? '') ? (category as AchievementCategory) : 'all',
-      status: SUBMISSION_STATUSES.includes(status as SubmissionStatus) ? (status as SubmissionStatus) : 'all',
+      status: RECORD_STATUSES.includes(status as RecordStatus) ? (status as RecordStatus) : 'all',
+      result: RESULT_GROUP_ORDER.includes(result as ResultGroup) ? (result as ResultGroup) : 'all',
       year: year && /^\d{4}$/.test(year) ? year : 'all',
       from: isDate(params.get('from')) ? params.get('from')! : '',
       to: isDate(params.get('to')) ? params.get('to')! : '',
@@ -64,7 +68,13 @@ export function useAchievementFilters() {
     setParams(next, { replace: true })
   }, [setParams])
   const active =
-    filters.query !== '' || filters.category !== 'all' || filters.status !== 'all' || filters.year !== 'all' || filters.from !== '' || filters.to !== ''
+    filters.query !== '' ||
+    filters.category !== 'all' ||
+    filters.status !== 'all' ||
+    filters.result !== 'all' ||
+    filters.year !== 'all' ||
+    filters.from !== '' ||
+    filters.to !== ''
 
   return { filters, update, reset, active }
 }
@@ -74,7 +84,13 @@ export const CATEGORY_OPTIONS: { value: AchievementCategory | 'all'; label: stri
   ...ACHIEVEMENT_CATEGORIES.map((c) => ({ value: c, label: c })),
 ]
 
-export const STATUS_OPTIONS: { value: SubmissionStatus | 'all'; label: string }[] = [
-  { value: 'all', label: 'All statuses' },
-  ...STATUS_ORDER.map((s) => ({ value: s, label: statusLabel(s) })),
+export const STATUS_OPTIONS: { value: RecordStatus | 'all'; label: string }[] = [
+  { value: 'all', label: 'All records' },
+  ...RECORD_STATUS_ORDER.map((s) => ({ value: s, label: recordStatusLabel(s) })),
+]
+
+/** The recorded achievement result, which is what students actually search by. */
+export const RESULT_OPTIONS: { value: ResultGroup | 'all'; label: string }[] = [
+  { value: 'all', label: 'All results' },
+  ...RESULT_GROUP_ORDER.map((g) => ({ value: g, label: RESULT_GROUPS[g].label })),
 ]

@@ -3,17 +3,16 @@ import { Link } from 'react-router-dom'
 import {
   ArrowRight,
   ArrowUpRight,
-  BadgeCheck,
+  Award,
   Building2,
   ChevronDown,
-  CircleAlert,
+  FileCheck2,
   FileSearch,
   FileUp,
   Filter,
   History,
   Menu,
   MessageSquareText,
-  ScanSearch,
   ShieldCheck,
   Stamp,
   Users,
@@ -153,10 +152,10 @@ function SiteHeader() {
 /** Hero illustration: an open achievement journal with a certificate tucked in. */
 function JournalComposition() {
   const entries = [
-    { y: '2026', m: 'Aug', t: 'Best Paper — Applied Computing', s: 'review' },
-    { y: '2025', m: 'Nov', t: 'Runner-up, Programming Contest', s: 'verified' },
-    { y: '2025', m: 'Feb', t: 'Conference on Responsible AI', s: 'verified' },
-    { y: '2024', m: 'Oct', t: 'Quiz — First place', s: 'verified' },
+    { y: '2026', m: 'Aug', t: 'Best Paper — Applied Computing', won: true },
+    { y: '2025', m: 'Nov', t: 'Runner-up, Programming Contest', won: false },
+    { y: '2025', m: 'Feb', t: 'Conference on Responsible AI', won: false },
+    { y: '2024', m: 'Oct', t: 'Quiz — First place', won: true },
   ] as const
   return (
     <div className="relative mx-auto w-full max-w-[520px] select-none" aria-hidden>
@@ -183,7 +182,7 @@ function JournalComposition() {
               <span
                 className={cn(
                   'absolute top-[6px] -left-[24.5px] size-2 rounded-full ring-4 ring-[#fffdf7]',
-                  e.s === 'verified' ? 'bg-navy-800' : 'bg-lavender-500',
+                  e.won ? 'bg-navy-800' : 'bg-lavender-500',
                 )}
               />
               <p className="font-mono text-[10px] tracking-wider text-ink-muted uppercase">
@@ -196,7 +195,7 @@ function JournalComposition() {
 
         {/* stamp */}
         <div className="absolute right-6 bottom-8 flex size-[84px] rotate-[-14deg] flex-col items-center justify-center rounded-full border-2 border-terracotta-500/70 text-terracotta-600/85">
-          <span className="font-mono text-[8px] tracking-[0.2em] uppercase">Verified</span>
+          <span className="font-mono text-[8px] tracking-[0.2em] uppercase">On record</span>
           <Stamp className="my-0.5 size-5" strokeWidth={1.5} />
           <span className="font-mono text-[8px] tracking-[0.2em]">2025</span>
         </div>
@@ -239,15 +238,15 @@ const STEPS = [
   },
   {
     n: 'II',
-    title: 'Verify',
-    body: 'A faculty reviewer checks the certificate against the details, asks for a correction if something is unclear, and marks it verified.',
-    icon: ScanSearch,
+    title: 'Record',
+    body: 'The achievement joins your passport straight away — with its event, organiser, date and the result you won. Nothing to wait for.',
+    icon: FileCheck2,
   },
   {
     n: 'III',
     title: 'Showcase',
-    body: 'Verified entries join your chronological record — ready to reference for placements, scholarships and applications.',
-    icon: BadgeCheck,
+    body: 'Your entries build a chronological record — ready to reference for placements, scholarships and applications, and for your department’s reports.',
+    icon: Award,
   },
 ]
 
@@ -277,7 +276,7 @@ export default function LandingPage() {
                 <span className="text-navy-700 italic">Organized</span> for <span className="relative whitespace-nowrap">What’s Next.<svg viewBox="0 0 300 12" className="absolute -bottom-2 left-0 h-3 w-full text-terracotta-500" preserveAspectRatio="none" aria-hidden><path d="M2 8c60-6 140-7 296-2" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /></svg></span>
               </h1>
               <p className="mt-8 max-w-[520px] text-[17px] leading-relaxed text-ink-soft">
-                Upload, verify, and manage your certificates in one place. Build a trusted record of your academic, technical, and extracurricular achievements.
+                Upload, organise and showcase your certificates in one place. Build a complete record of your academic, technical and extracurricular achievements.
               </p>
               <div className="mt-9 flex flex-wrap items-center gap-3">
                 <ButtonLink to="/register" size="lg" iconRight={<ArrowRight className="size-4" aria-hidden />}>
@@ -336,18 +335,18 @@ export default function LandingPage() {
               </div>
               <div>
                 <p className="font-mono text-[11px] text-terracotta-600">02</p>
-                <h3 className="mt-2 font-serif text-lg text-navy-900">Verification you can point to</h3>
-                <p className="mt-2 text-[14.5px] text-ink-soft">Faculty review each submission, and every status change is kept as part of the record’s history.</p>
+                <h3 className="mt-2 font-serif text-lg text-navy-900">A record you can point to</h3>
+                <p className="mt-2 text-[14.5px] text-ink-soft">Every submission keeps its reference, its date and the result you won, and every edit stays in the record’s history.</p>
               </div>
               <div>
                 <p className="font-mono text-[11px] text-terracotta-600">03</p>
                 <h3 className="mt-2 font-serif text-lg text-navy-900">A conversation, not a black box</h3>
-                <p className="mt-2 text-[14.5px] text-ink-soft">When something needs fixing, reviewers say what and why — directly on the submission.</p>
+                <p className="mt-2 text-[14.5px] text-ink-soft">Faculty can ask a question directly on a record, and you can answer in the same thread.</p>
               </div>
               <div>
                 <p className="font-mono text-[11px] text-terracotta-600">04</p>
                 <h3 className="mt-2 font-serif text-lg text-navy-900">An institutional view</h3>
-                <p className="mt-2 text-[14.5px] text-ink-soft">Administrators see records across departments, manage users and follow verification progress.</p>
+                <p className="mt-2 text-[14.5px] text-ink-soft">Administrators see records across departments and batches, manage users and follow what is being achieved.</p>
               </div>
             </div>
           </div>
@@ -359,9 +358,9 @@ export default function LandingPage() {
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
               <div>
                 <SectionKicker n="03">How it works</SectionKicker>
-                <h2 className="display mt-5 text-[34px] md:text-[42px]">Submit. Verify. Showcase.</h2>
+                <h2 className="display mt-5 text-[34px] md:text-[42px]">Submit. Record. Showcase.</h2>
               </div>
-              <p className="max-w-sm text-ink-soft">Three steps from a certificate on your desk to a verified entry in your record.</p>
+              <p className="max-w-sm text-ink-soft">Three steps from a certificate on your desk to an entry in your record.</p>
             </div>
             <ol className="relative mt-14 grid gap-12 md:grid-cols-3 md:gap-8">
               <span className="absolute top-[27px] right-[16%] left-[16%] hidden h-px bg-line-strong md:block" aria-hidden />
@@ -389,12 +388,12 @@ export default function LandingPage() {
           <div className="mx-auto grid max-w-[1240px] items-center gap-14 px-5 py-20 md:px-8 lg:grid-cols-2 lg:py-28">
             <div>
               <SectionKicker n="04">For students</SectionKicker>
-              <h2 className="display mt-5 text-[34px] leading-tight md:text-[42px]">Know where every certificate stands.</h2>
+              <h2 className="display mt-5 text-[34px] leading-tight md:text-[42px]">Every certificate, in one record.</h2>
               <ul className="mt-8 space-y-5">
                 {([
                   [History, 'A timeline of your years', 'Entries are grouped by year, so your record reads like a journal rather than a folder.'],
-                  [Filter, 'Find anything quickly', 'Search and filter by category, status or event year.'],
-                  [CircleAlert, 'Clear next steps', 'Anything that needs a correction is surfaced first, with the reviewer’s note attached.'],
+                  [Filter, 'Find anything quickly', 'Search and filter by category, result or event year.'],
+                  [Award, 'Your results, front and centre', 'Winner, runner-up, participant — what you actually achieved is what the record shows.'],
                 ] satisfies Feature[]).map(([I, t, b]) => {
                   return (
                     <li key={t} className="flex gap-4">
@@ -415,10 +414,10 @@ export default function LandingPage() {
                   <p className="label-archival text-[9.5px]">Illustration</p>
                 </div>
                 {[
-                  ['CodeHarbour 36-Hour Hackathon', 'Hackathon · Winner', 'Pending', 'bg-parchment text-ink-soft border-line-strong'],
-                  ['Symposium on Applied Computing', 'Paper · Best Paper', 'Under review', 'bg-lavender-100 text-lavender-700 border-lavender-300'],
-                  ['Summer Research Internship', 'Internship', 'Needs attention', 'bg-terracotta-50 text-terracotta-700 border-terracotta-300'],
-                  ['Programming Contest', 'Competition · Runner-up', 'Verified', 'bg-navy-50 text-navy-800 border-navy-700/25'],
+                  ['CodeHarbour 36-Hour Hackathon', 'Hackathon · First place', 'Winner', 'bg-navy-50 text-navy-800 border-navy-700/25'],
+                  ['Symposium on Applied Computing', 'Paper Presentation', 'Best Paper', 'bg-butter-50 text-butter-700 border-butter-200'],
+                  ['Programming Contest', 'Competition · Second place', 'Runner-up', 'bg-lavender-100 text-lavender-700 border-lavender-300'],
+                  ['Summer Research Internship', 'Internship', 'Participant', 'bg-sky-50 text-sky-700 border-sky-200'],
                 ].map(([t, m, s, c]) => (
                   <div key={t} className="flex items-center justify-between gap-3 border-b border-line/70 px-5 py-3.5 last:border-0">
                     <div className="min-w-0">
@@ -438,21 +437,23 @@ export default function LandingPage() {
           <div className="mx-auto grid max-w-[1240px] items-center gap-14 px-5 py-20 md:px-8 lg:grid-cols-12 lg:py-28">
             <div className="order-2 lg:order-1 lg:col-span-6" aria-hidden>
               <div className="rounded-md border border-ivory/10 bg-navy-800/60 p-6">
-                <p className="label-archival text-[10px] text-ivory/45">Review · CP-2026-0161</p>
-                <p className="mt-2 font-serif text-xl">Summer Research Internship</p>
-                <div className="mt-5 space-y-4 border-l border-ivory/15 pl-4 text-[13.5px]">
-                  <div>
-                    <p className="text-ivory/50">Reviewer</p>
-                    <p className="text-ivory/85">The name on the certificate does not match the registered name. Please upload a clearer copy.</p>
-                  </div>
-                  <div>
-                    <p className="text-ivory/50">Student</p>
-                    <p className="text-ivory/85">Uploaded the corrected certificate from the lab office.</p>
-                  </div>
+                <p className="label-archival text-[10px] text-ivory/45">Batch 2023–2027 · CSE</p>
+                <p className="mt-2 font-serif text-xl">Batch achievements</p>
+                <div className="mt-5 space-y-3 border-l border-ivory/15 pl-4 text-[13.5px]">
+                  {[
+                    ['Winners', '14'],
+                    ['Runners-up', '9'],
+                    ['Participants', '38'],
+                  ].map(([k, v]) => (
+                    <div key={k} className="flex items-baseline justify-between gap-4">
+                      <p className="text-ivory/50">{k}</p>
+                      <p className="font-serif text-lg text-ivory/90 tabular-nums">{v}</p>
+                    </div>
+                  ))}
                 </div>
                 <div className="mt-6 flex gap-2">
-                  <span className="rounded-[5px] border border-ivory/20 px-3 py-1.5 text-[12.5px] text-ivory/80">Request correction</span>
-                  <span className="rounded-[5px] bg-terracotta-500 px-3 py-1.5 text-[12.5px] text-white">Mark as verified</span>
+                  <span className="rounded-[5px] border border-ivory/20 px-3 py-1.5 text-[12.5px] text-ivory/80">All achievements</span>
+                  <span className="rounded-[5px] bg-terracotta-500 px-3 py-1.5 text-[12.5px] text-white">Download report</span>
                 </div>
               </div>
             </div>
@@ -460,12 +461,12 @@ export default function LandingPage() {
               <SectionKicker n="05" inverse>
                 For faculty
               </SectionKicker>
-              <h2 className="mt-5 font-serif text-[34px] leading-tight md:text-[42px]">A focused review desk.</h2>
+              <h2 className="mt-5 font-serif text-[34px] leading-tight md:text-[42px]">Your department’s record, at hand.</h2>
               <ul className="mt-8 space-y-5 text-[14.5px]">
                 {([
-                  [FileSearch, 'A single queue', 'Pending submissions in one compact table, searchable by student, event or category.'],
-                  [MessageSquareText, 'Comments on the record', 'Ask for what’s missing and keep the exchange attached to the submission.'],
-                  [ShieldCheck, 'Decisions with a trail', 'Verify or request a correction; each change is time-stamped with the reviewer’s name.'],
+                  [FileSearch, 'Batch by batch', 'Every batch’s winners, runners-up and participants in one compact table, searchable by student, event or category.'],
+                  [MessageSquareText, 'Comments on the record', 'Ask a student about an entry and keep the exchange attached to it.'],
+                  [ShieldCheck, 'Reports in a click', 'Filter by batch, department, category, result or date range, then download the department report as CSV.'],
                 ] satisfies Feature[]).map(([I, t, b]) => {
                   return (
                     <li key={t} className="flex gap-4">

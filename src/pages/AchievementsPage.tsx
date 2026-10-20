@@ -9,8 +9,9 @@ import { FilterSelect, SearchInput } from '../components/ui/Filters'
 import { CHEVRON } from '../components/ui/FormField'
 import { PageHeader } from '../components/ui/PageHeader'
 import { EmptyState } from '../components/ui/States'
-import { statusLabel } from '../domain/status'
-import { CATEGORY_OPTIONS, STATUS_OPTIONS, useAchievementFilters } from '../hooks/useAchievementFilters'
+import { recordStatusLabel } from '../domain/status'
+import { RESULT_GROUPS } from '../domain/result'
+import { CATEGORY_OPTIONS, RESULT_OPTIONS, STATUS_OPTIONS, useAchievementFilters } from '../hooks/useAchievementFilters'
 import { useStudent } from '../hooks/useData'
 import { useMyAchievements, useMyDrafts } from '../hooks/usePassport'
 import { cn } from '../lib/cn'
@@ -64,7 +65,8 @@ function Library() {
   const chips: { key: string; label: string; clear: () => void }[] = []
   if (filters.query) chips.push({ key: 'q', label: `“${filters.query}”`, clear: () => update({ q: '' }) })
   if (filters.category !== 'all') chips.push({ key: 'category', label: filters.category, clear: () => update({ category: '' }) })
-  if (filters.status !== 'all') chips.push({ key: 'status', label: statusLabel(filters.status), clear: () => update({ status: '' }) })
+  if (filters.result !== 'all') chips.push({ key: 'result', label: RESULT_GROUPS[filters.result].label, clear: () => update({ result: '' }) })
+  if (filters.status !== 'all') chips.push({ key: 'status', label: recordStatusLabel(filters.status), clear: () => update({ status: '' }) })
   if (filters.year !== 'all') chips.push({ key: 'year', label: `Year ${filters.year}`, clear: () => update({ year: '' }) })
   if (filters.from) chips.push({ key: 'from', label: `From ${formatDate(filters.from)}`, clear: () => update({ from: '' }) })
   if (filters.to) chips.push({ key: 'to', label: `To ${formatDate(filters.to)}`, clear: () => update({ to: '' }) })
@@ -77,7 +79,7 @@ function Library() {
       <PageHeader
         kicker={`Passport · ${mine.length} ${mine.length === 1 ? 'record' : 'records'}`}
         title="My Achievements"
-        description="Your certificate library: every achievement you have submitted, with where it stands in verification."
+        description="Your certificate library: every achievement you have submitted, with the result you recorded for each."
         actions={
           <ButtonLink to="/student/achievements/new" variant="accent" icon={<FilePlus2 className="size-4" aria-hidden />}>
             Add Achievement
@@ -101,7 +103,7 @@ function Library() {
         <div className="paper">
           <EmptyState
             title="No achievements yet"
-            body={drafts.length ? 'Nothing submitted yet. Finish a draft above, or start a new achievement.' : 'Your submitted certificates will be listed here, with their verification progress.'}
+            body={drafts.length ? 'Nothing submitted yet. Finish a draft above, or start a new achievement.' : 'Your submitted certificates will be listed here, with the result you recorded for each.'}
             action={<ButtonLink to="/student/achievements/new" icon={<FilePlus2 className="size-4" aria-hidden />}>Add your first achievement</ButtonLink>}
           />
         </div>
@@ -117,9 +119,10 @@ function Library() {
                 className="lg:flex-1"
                 label="Search achievements"
               />
-              <div className="grid grid-cols-3 gap-2 lg:flex">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:flex">
                 <FilterSelect label="Category" value={filters.category} onChange={(v) => update({ category: v })} options={CATEGORY_OPTIONS} className="lg:w-44" />
-                <FilterSelect label="Status" value={filters.status} onChange={(v) => update({ status: v })} options={STATUS_OPTIONS} className="lg:w-40" />
+                <FilterSelect label="Result" value={filters.result} onChange={(v) => update({ result: v })} options={RESULT_OPTIONS} className="lg:w-40" />
+                <FilterSelect label="Record state" value={filters.status} onChange={(v) => update({ status: v })} options={STATUS_OPTIONS} className="lg:w-40" />
                 <FilterSelect
                   label="Event year"
                   value={filters.year}

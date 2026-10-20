@@ -3,7 +3,7 @@ import { formatDate } from '../../lib/format'
 import type { Achievement } from '../../types'
 import { DataTable } from '../ui/DataTable'
 import type { Column } from '../ui/DataTable'
-import { StatusBadge } from '../ui/StatusBadge'
+import { ResultBadge, StatusBadge } from '../ui/StatusBadge'
 
 /** Library list view. Secondary columns collapse on narrow screens; the table scrolls if needed. */
 export function AchievementTable({ achievements, hrefFor }: { achievements: Achievement[]; hrefFor: (a: Achievement) => string }) {
@@ -21,15 +21,25 @@ export function AchievementTable({ achievements, hrefFor }: { achievements: Achi
             {a.organizer}
             <span className="sm:hidden"> · {formatDate(a.eventDate)}</span>
           </p>
-          {/* On small screens the status column is hidden, so show it here. */}
-          <StatusBadge status={a.status} className="mt-1.5 sm:hidden" />
+          {/* On small screens the result column is hidden, so show it here. */}
+          <ResultBadge type={a.achievementType} className="mt-1.5 sm:hidden" />
         </div>
       ),
     },
     { key: 'category', header: 'Category', render: (a) => <span className="text-ink-soft">{a.category}</span>, hideBelow: 'md' },
     { key: 'date', header: 'Event date', render: (a) => <time dateTime={a.eventDate} className="whitespace-nowrap text-ink-soft">{formatDate(a.eventDate)}</time>, hideBelow: 'sm' },
-    { key: 'result', header: 'Achievement', render: (a) => <span className="text-ink">{a.position ?? a.achievementType}</span>, hideBelow: 'lg' },
-    { key: 'status', header: 'Status', render: (a) => <StatusBadge status={a.status} />, hideBelow: 'sm' },
+    { key: 'prize', header: 'Prize or position', render: (a) => <span className="text-ink">{a.position ?? '—'}</span>, hideBelow: 'lg' },
+    {
+      key: 'result',
+      header: 'Result',
+      hideBelow: 'sm',
+      render: (a) => (
+        <span className="flex items-center gap-1.5">
+          <ResultBadge type={a.achievementType} />
+          {a.status === 'archived' && <StatusBadge status={a.status} compact />}
+        </span>
+      ),
+    },
     { key: 'updated', header: 'Last updated', render: (a) => <time dateTime={a.updatedAt} className="whitespace-nowrap text-ink-soft">{formatDate(a.updatedAt)}</time>, hideBelow: 'lg' },
     {
       key: 'actions',

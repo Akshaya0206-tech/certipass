@@ -4,13 +4,13 @@ import { MessageSquareText, Send } from 'lucide-react'
 import { useToast } from '../context/ToastContext'
 import { cn } from '../lib/cn'
 import { formatDateTime, formatRelative, initials } from '../lib/format'
-import { addComment, COMMENT_MAX_LENGTH } from '../services/reviewService'
-import type { CommentType, PublicUser, ReviewComment } from '../types'
+import { addComment, COMMENT_MAX_LENGTH } from '../services/facultyService'
+import type { CommentType, PublicUser, RecordComment } from '../types'
 import { Button } from './ui/Button'
 
 interface CommentThreadProps {
   achievementId: string
-  comments: ReviewComment[]
+  comments: RecordComment[]
   /** Used only to label the viewer's own comments as "You". The author of a new comment is decided by the service. */
   currentUser: PublicUser
   placeholder?: string
@@ -20,13 +20,14 @@ interface CommentThreadProps {
 
 const TYPE_LABEL: Record<CommentType, string | null> = {
   general: null,
-  correction_request: 'Correction request',
-  review_update: 'Review update',
+  note: 'Note with an update',
 }
 
 /**
- * The conversation on an achievement. Comments can be added but never edited
- * or deleted, so the record of what was asked and answered stays intact.
+ * The conversation on an achievement. A comment is an ordinary message
+ * between the student and their department's faculty: it carries no decision
+ * and changes nothing about the record. Comments can be added but never
+ * edited or deleted, so what was asked and answered stays intact.
  */
 export function CommentThread({ achievementId, comments, currentUser, placeholder, readOnly }: CommentThreadProps) {
   const toast = useToast()
@@ -90,12 +91,7 @@ export function CommentThread({ achievementId, comments, currentUser, placeholde
                       {formatRelative(c.createdAt)}
                     </time>
                     {typeLabel && (
-                      <span
-                        className={cn(
-                          'rounded-sm border px-1.5 text-[10.5px] font-medium',
-                          c.type === 'correction_request' ? 'border-terracotta-300 bg-terracotta-50 text-terracotta-700' : 'border-lavender-300 bg-lavender-50 text-lavender-700',
-                        )}
-                      >
+                      <span className="rounded-sm border border-lavender-300 bg-lavender-50 px-1.5 text-[10.5px] font-medium text-lavender-700">
                         {typeLabel}
                       </span>
                     )}

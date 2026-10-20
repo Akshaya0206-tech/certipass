@@ -50,7 +50,7 @@ export function CertificatePreview({ certificate, eventName, objectUrl, classNam
     return (
       <figure id={id} className={cn('flex flex-col gap-3', className)}>
         <div className="overflow-hidden rounded-md border border-terracotta-300 bg-terracotta-50/50 p-3 sm:p-4">
-          <Unavailable title="No certificate attached" reason="This record has no certificate file or file details. It can’t be verified until the student provides one." />
+          <Unavailable title="No certificate attached" reason="This record has no certificate file or file details. Ask the student to add one." />
         </div>
       </figure>
     )

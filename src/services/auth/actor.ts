@@ -32,6 +32,6 @@ export class PermissionError extends Error {
 export function requireActor<R extends Role>(role: R): Extract<User, { role: R }> {
   const actor = currentActor()
   if (!actor) throw new PermissionError('not_signed_in', 'Your session has ended. Please sign in again.')
-  if (actor.role !== role) throw new PermissionError('forbidden', `Only ${role === 'faculty' ? 'faculty reviewers' : `${role}s`} can do this.`)
+  if (actor.role !== role) throw new PermissionError('forbidden', `Only ${role === 'faculty' ? 'faculty' : `${role}s`} can do this.`)
   return actor as Extract<User, { role: R }>
 }

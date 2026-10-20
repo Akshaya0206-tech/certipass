@@ -16,12 +16,13 @@
  */
 import { useSyncExternalStore } from 'react'
 import { SEED_ACADEMIC_CONFIG, SEED_ACHIEVEMENTS, SEED_NOTIFICATIONS, SEED_USERS } from '../data/mockData'
-import type { AcademicConfig, Achievement, AchievementDraft, AppNotification, AuditEvent, User } from '../types'
+import type { AcademicConfig, Achievement, AchievementDraft, AppNotification, AuditEvent, NotificationType, RecordEvent, User } from '../types'
 
-const STORAGE_KEY = 'certipass.data.v3'
+const STORAGE_KEY = 'certipass.data.v4'
+const LEGACY_KEY_V3 = 'certipass.data.v3'
 const LEGACY_KEY_V2 = 'certipass.prototype.v2'
 const LEGACY_KEY_V1 = 'certipass.prototype.v1'
-const SCHEMA_VERSION = 3
+const SCHEMA_VERSION = 4
 
 export interface DbState {
   version: number
@@ -81,16 +82,104 @@ let legacyPasswords: { userId: string; password: string }[] = []
 
 // ── Record validation and upgrades ───────────────────────────────────────────
 
-const STATUSES = new Set(['submitted', 'under_review', 'needs_attention', 'verified'])
-/** Phases 1–2 called the first status 'pending'; Phase 3 calls it 'submitted'. */
-const upgradeStatus = (s: unknown) => (s === 'pending' ? 'submitted' : s)
+const STATUSES = new Set(['submitted', 'archived'])
 
+/**
+ * Every status an earlier version could store, mapped onto the record model.
+ * The verification workflow is gone, so a record that was waiting on a
+ * reviewer, sent back for a correction or verified is simply a submitted
+ * record: no achievement data is lost and nothing is dropped.
+ *  - 'pending' came from Phases 1–2;
+ *  - 'under_review', 'needs_attention' and 'verified' came from the
+ *    verification workflow removed in this version.
+ */
+const upgradeStatus = (s: unknown): Achievement['status'] => (s === 'archived' ? 'archived' : 'submitted')
+
+/**
+ * How a stored history kind maps onto the current model. A legacy
+ * 'resubmitted' entry was the student editing their own record, so it becomes
+ * 'updated'; 'status' was a reviewer's decision and has no counterpart, so it
+ * is dropped. An entry with no kind is treated as the first submission.
+ */
+const HISTORY_KIND: Record<string, NonNullable<RecordEvent['kind']> | null> = {
+  submitted: 'submitted',
+  updated: 'updated',
+  resubmitted: 'updated',
+  archived: 'archived',
+  restored: 'restored',
+  status: null,
+}
+
+/**
+ * Bring one stored record onto the current model.
+ *
+ * Achievement data — id, reference, student, event details, recorded result,
+ * certificate metadata, submission timestamps — is never touched. What goes is
+ * only the verification trail: reviewer decisions in the history, the
+ * correction requests and decision notes posted as comments, and the reviewer
+ * the record was assigned to. A record's first submission and the student's
+ * own edits are kept, and a record that somehow has no history left is given
+ * a submission entry so its trail is never empty.
+ */
 function upgradeAchievement(a: Achievement): Achievement {
+  const { reviewerId, ...rest } = a as Achievement & { reviewerId?: string }
+  void reviewerId
+  const status = upgradeStatus(a.status)
+  const history = (Array.isArray(a.history) ? a.history : [])
+    // Map the kind first, then drop what has no counterpart, so a legacy
+    // 'resubmitted' entry is kept as the student's edit rather than discarded.
+    .map((h) => ({ ...h, kind: HISTORY_KIND[(h.kind as string) ?? 'submitted'] ?? null }))
+    .filter((h): h is typeof h & { kind: NonNullable<RecordEvent['kind']> } => h.kind !== null)
+    .map((h) => ({
+      ...h,
+      status: upgradeStatus(h.status),
+      fromStatus: h.fromStatus === undefined ? undefined : upgradeStatus(h.fromStatus),
+    }))
+  const comments = (Array.isArray(a.comments) ? a.comments : [])
+    // These two types only ever existed in the verification workflow.
+    .filter((c) => {
+      const legacy = c.type as string | undefined
+      return legacy !== 'correction_request' && legacy !== 'review_update'
+    })
+    .map((c) => ({ ...c, type: c.type === 'note' ? ('note' as const) : ('general' as const) }))
   return {
-    ...a,
-    status: upgradeStatus(a.status) as Achievement['status'],
-    history: a.history.map((h) => ({ ...h, status: upgradeStatus(h.status) as Achievement['status'] })),
+    ...rest,
+    status,
+    history: history.length
+      ? history
+      : [{ status: 'submitted' as const, at: a.submittedAt, byName: a.history?.[0]?.byName ?? 'Student', kind: 'submitted' as const }],
+    comments,
   }
+}
+
+/**
+ * How a stored notification type maps onto the current model. The four
+ * verification notices ('review_started', 'correction_requested', 'verified',
+ * 'review_reopened') announced reviewer decisions, so they are dropped with
+ * the workflow; 'resubmitted' becomes 'updated'. A notification with no type
+ * predates typing and is kept as it is.
+ */
+const NOTIFICATION_TYPE: Record<string, NotificationType | null> = {
+  welcome: 'welcome',
+  submitted: 'submitted',
+  updated: 'updated',
+  resubmitted: 'updated',
+  comment: 'comment',
+  review_started: null,
+  correction_requested: null,
+  verified: null,
+  review_reopened: null,
+}
+
+/**
+ * Bring one stored notification onto the current model, or drop it when it
+ * only existed to announce a reviewer's decision. Returns null to drop.
+ */
+function upgradeNotification(n: AppNotification): AppNotification | null {
+  if (n.type === undefined) return n
+  const type = NOTIFICATION_TYPE[n.type as string]
+  if (type === null || type === undefined) return null
+  return type === n.type ? n : { ...n, type, title: type === 'updated' ? 'Achievement updated' : n.title }
 }
 
 const VALIDATORS: Record<Collection, (v: Record<string, unknown>) => boolean> = {
@@ -111,15 +200,22 @@ const VALIDATORS: Record<Collection, (v: Record<string, unknown>) => boolean> = 
   audit: (e) => typeof e.at === 'string' && typeof e.action === 'string' && typeof e.summary === 'string' && typeof e.actorId === 'string',
 }
 
-/** Keep well-formed records and drop malformed ones, rather than discarding everything. */
+/**
+ * Keep well-formed records and drop malformed ones, rather than discarding
+ * everything, then bring each one onto the current model. Achievements and
+ * notifications are upgraded; a notification that only announced a reviewer's
+ * decision is dropped along with the workflow.
+ */
 function clean<T extends Item>(collection: Collection, items: unknown): T[] {
   if (!Array.isArray(items)) return []
-  return items
-    .filter(
-      (v): v is T =>
-        !!v && typeof v === 'object' && typeof (v as Item).id === 'string' && VALIDATORS[collection](v as Record<string, unknown>),
-    )
-    .map((v) => (collection === 'achievements' ? (upgradeAchievement(v as unknown as Achievement) as unknown as T) : v))
+  const kept = items.filter(
+    (v): v is T => !!v && typeof v === 'object' && typeof (v as Item).id === 'string' && VALIDATORS[collection](v as Record<string, unknown>),
+  )
+  if (collection === 'achievements') return kept.map((v) => upgradeAchievement(v as unknown as Achievement) as unknown as T)
+  if (collection === 'notifications') {
+    return kept.map((v) => upgradeNotification(v as unknown as AppNotification) as unknown as T | null).filter((v): v is T => v !== null)
+  }
+  return kept
 }
 
 // ── Overlay ↔ state ──────────────────────────────────────────────────────────
@@ -156,9 +252,9 @@ function toOverlay(st: DbState): Overlay {
   return overlay
 }
 
-function parseOverlay(raw: string): Overlay | null {
+function parseOverlay(raw: string, expectVersion = SCHEMA_VERSION): Overlay | null {
   const v = JSON.parse(raw) as Partial<Overlay> | null
-  if (!v || v.version !== SCHEMA_VERSION || typeof v.added !== 'object' || typeof v.changed !== 'object') return null
+  if (!v || v.version !== expectVersion || typeof v.added !== 'object' || typeof v.changed !== 'object') return null
   const overlay = emptyOverlay()
   for (const c of COLLECTIONS) {
     overlay.added[c] = clean(c, v.added?.[c])
@@ -216,6 +312,18 @@ function load(): DbState {
       if (overlay) return compose(overlay)
     } catch {
       /* malformed JSON: fall through to migration / seed */
+    }
+  }
+  // A v3 overlay holds only what this browser changed, so its added and
+  // changed records are migrated the same way and nothing is discarded.
+  const v3 = readKey(LEGACY_KEY_V3)
+  if (v3) {
+    removeKey(LEGACY_KEY_V3)
+    try {
+      const overlay = parseOverlay(v3, 3)
+      if (overlay) return compose(overlay)
+    } catch {
+      /* unreadable: fall through */
     }
   }
   for (const key of [LEGACY_KEY_V2, LEGACY_KEY_V1]) {

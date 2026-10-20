@@ -165,7 +165,7 @@ export function ReviewStep({ student, form, certificate, objectUrl, onEdit, dupl
       </Section>
 
       {resubmitting && onNoteChange && (
-        <Field label="Note to your reviewer" optional hint="Briefly say what you changed. It’s posted as a comment on the achievement.">
+        <Field label="Note about your changes" optional hint="Briefly say what you changed. It’s posted as a comment on the achievement.">
           <TextArea value={note ?? ''} onChange={(e) => onNoteChange(e.target.value)} rows={3} maxLength={1000} />
         </Field>
       )}
@@ -173,7 +173,7 @@ export function ReviewStep({ student, form, certificate, objectUrl, onEdit, dupl
       <p className="rounded-md bg-parchment/60 px-3 py-2.5 text-[12.5px] text-ink-soft">
         {resubmitting
           ? 'Resubmitting sends this achievement back to faculty as “Submitted”. Earlier comments and history are kept.'
-          : 'After you submit, the status will be “Submitted” until a faculty reviewer verifies it.'}
+          : 'Once you submit, the record is added to your passport and is available to your department’s faculty straight away.'}
       </p>
     </div>
   )

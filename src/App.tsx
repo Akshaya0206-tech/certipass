@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { Spinner } from './components/ui/States'
 import { AuthProvider } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
@@ -23,9 +23,9 @@ const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 const HelpPage = lazy(() => import('./pages/HelpPage'))
 const FacultyDashboard = lazy(() => import('./pages/FacultyDashboard'))
-const ReviewQueuePage = lazy(() => import('./pages/ReviewQueuePage'))
-const AllSubmissionsPage = lazy(() => import('./pages/ReviewQueuePage').then((m) => ({ default: m.AllSubmissionsPage })))
-const ReviewDetailPage = lazy(() => import('./pages/ReviewDetailPage'))
+const FacultyBatchAchievementsPage = lazy(() => import('./pages/FacultyBatchAchievementsPage'))
+const FacultyRecordDetailPage = lazy(() => import('./pages/FacultyRecordDetailPage'))
+const FacultyReportsPage = lazy(() => import('./pages/FacultyReportsPage'))
 const FacultyStudentsPage = lazy(() => import('./pages/FacultyStudentsPage'))
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
 const UserManagementPage = lazy(() => import('./pages/UserManagementPage'))
@@ -37,6 +37,12 @@ const AdminRecordDetailPage = lazy(() => import('./pages/AdminRecordDetailPage')
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'))
 const AdminActivityPage = lazy(() => import('./pages/AdminActivityPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+
+/** An old /faculty/review/:id link now opens the ordinary record detail page. */
+function LegacyReviewRedirect() {
+  const { id } = useParams()
+  return <Navigate to={id ? `/faculty/records/${id}` : '/faculty/batches'} replace />
+}
 
 function PageFallback() {
   return (
@@ -79,11 +85,19 @@ export default function App() {
               <Route element={<RequireRole role="faculty" />}>
                 <Route path="/faculty" element={<AppShell />}>
                   <Route index element={<FacultyDashboard />} />
-                  <Route path="queue" element={<ReviewQueuePage />} />
-                  <Route path="submissions" element={<AllSubmissionsPage />} />
-                  <Route path="review/:id" element={<ReviewDetailPage />} />
                   <Route path="students" element={<FacultyStudentsPage />} />
+                  <Route path="batches" element={<FacultyBatchAchievementsPage />} />
+                  <Route path="records/:id" element={<FacultyRecordDetailPage />} />
+                  <Route path="reports" element={<FacultyReportsPage />} />
                   <Route path="profile" element={<ProfilePage />} />
+                  {/*
+                    The verification workflow these paths belonged to has been
+                    removed. They redirect so old links still land somewhere
+                    useful; none of them can reach a review action.
+                  */}
+                  <Route path="queue" element={<Navigate to="/faculty/batches" replace />} />
+                  <Route path="submissions" element={<Navigate to="/faculty/batches" replace />} />
+                  <Route path="review/:id" element={<LegacyReviewRedirect />} />
                   <Route path="*" element={<WorkspaceNotFound />} />
                 </Route>
               </Route>

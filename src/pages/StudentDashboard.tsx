@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, BadgeCheck, CircleAlert, FilePlus2, Files, ScanSearch, Search, UserRound } from 'lucide-react'
+import { ArrowRight, Award, CircleAlert, FilePlus2, Files, Medal, Search, UserRound, Users } from 'lucide-react'
 import { AchievementList } from '../components/AchievementList'
 import { ActivityFeed } from '../components/passport/ActivityFeed'
 import { DraftList } from '../components/passport/DraftList'
@@ -17,13 +17,7 @@ import { useStudent } from '../hooks/useData'
 import { useMyAchievements, useMyDrafts } from '../hooks/usePassport'
 import { formatRelative, initials, ordinalYear, YEAR_LABEL } from '../lib/format'
 import { sortBySubmittedDesc } from '../services/achievementService'
-import {
-  getAchievementSummary,
-  getCorrectionRequest,
-  getFeaturedAchievement,
-  getRecentActivity,
-  validateStudentProfile,
-} from '../services/passportService'
+import { getAchievementSummary, getFeaturedAchievement, getRecentActivity, validateStudentProfile } from '../services/passportService'
 
 const detailHref = (id: string) => `/student/achievements/${id}`
 
@@ -52,8 +46,6 @@ function Dashboard() {
   const activity = useMemo(() => getRecentActivity(student.id, mine, 7), [student.id, mine])
   const featured = useMemo(() => getFeaturedAchievement(student.id, mine), [student.id, mine])
   const recent = useMemo(() => sortBySubmittedDesc(mine).slice(0, 4), [mine])
-  const attention = useMemo(() => mine.filter((a) => a.status === 'needs_attention'), [mine])
-  const attentionRequest = attention[0] ? getCorrectionRequest(attention[0]) : undefined
   const profileIssues = validateStudentProfile(student)
   const dept = { name: departmentName(student.department) }
 
@@ -113,33 +105,6 @@ function Dashboard() {
         </div>
       )}
 
-      {/* Next action */}
-      {attention.length > 0 && (
-        <section aria-labelledby="next-action" className="relative overflow-hidden rounded-xl border border-terracotta-100 bg-terracotta-50 p-4 pl-5">
-          <span className="absolute inset-y-0 left-0 w-1 bg-terracotta-500" aria-hidden />
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="flex gap-3">
-              <CircleAlert className="mt-0.5 size-5 shrink-0 text-terracotta-600" aria-hidden />
-              <div>
-                <h2 id="next-action" className="font-medium text-navy-900">
-                  {attention.length === 1 ? 'One achievement needs your attention' : `${attention.length} achievements need your attention`}
-                </h2>
-                <p className="mt-1 text-sm text-ink-soft">
-                  <span className="font-medium">{attention[0].eventName}</span>
-                  {attentionRequest && <> — “{attentionRequest.body}”</>}
-                </p>
-              </div>
-            </div>
-            <Link
-              to={detailHref(attention[0].id)}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 self-start rounded-lg border border-terracotta-500 px-3.5 text-sm font-medium text-terracotta-700 hover:bg-terracotta-100 md:self-center"
-            >
-              Review and resubmit <ArrowRight className="size-4" aria-hidden />
-            </Link>
-          </div>
-        </section>
-      )}
-
       {drafts.length > 0 && (
         <section aria-labelledby="dash-drafts-heading">
           <div className="mb-3 flex items-baseline justify-between gap-3">
@@ -162,19 +127,15 @@ function Dashboard() {
           caption="Achievement summary"
           items={[
             { label: 'Total submitted', value: summary.total, icon: Files },
-            { label: 'Verified', value: summary.verified, icon: BadgeCheck, tone: 'navy' },
-            {
-              label: 'Submitted or under review',
-              value: summary.inReview,
-              icon: ScanSearch,
-              tone: 'lavender',
-              note: `${summary.submitted} submitted · ${summary.underReview} under review`,
-            },
-            { label: 'Needs attention', value: summary.needsAttention, icon: CircleAlert, tone: 'terracotta' },
+            { label: 'Winner', value: summary.winner, icon: Award, tone: 'navy' },
+            { label: 'Runner-up', value: summary.runner_up, icon: Medal, tone: 'lavender' },
+            { label: 'Participant', value: summary.participant, icon: Users },
+            { label: 'Other', value: summary.other, tone: 'terracotta', note: 'finalist, best paper, other' },
           ]}
         />
         <p className="mt-2 text-[12px] text-ink-muted">
-          Each record is counted once by its current status, so verified + in review + needs attention = total.
+          Each record is counted once by the result you recorded, so Winner + Runner-up + Participant + Other = total. Drafts aren’t counted
+          {summary.archived > 0 ? `, and ${summary.archived} archived ${summary.archived === 1 ? 'record is' : 'records are'} left out` : ''}.
         </p>
       </div>
 
@@ -183,7 +144,7 @@ function Dashboard() {
           <div className="paper">
             <EmptyState
               title="Your passport is empty"
-              body="Add your first certificate — a workshop, a hackathon, a sports meet — and it will appear here with its review progress."
+              body="Add your first certificate — a workshop, a hackathon, a sports meet — and it will appear here straight away."
               action={<ButtonLink to="/student/achievements/new" icon={<FilePlus2 className="size-4" aria-hidden />}>Add your first achievement</ButtonLink>}
             />
           </div>

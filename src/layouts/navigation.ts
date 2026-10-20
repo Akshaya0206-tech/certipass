@@ -5,13 +5,13 @@ import {
   CalendarDays,
   FileCheck2,
   FilePlus2,
+  FileSpreadsheet,
+  Files,
   GraduationCap,
   History,
-  Inbox,
   LayoutDashboard,
   LifeBuoy,
   Library,
-  ListChecks,
   Settings,
   UserCog,
   UserRound,
@@ -26,7 +26,7 @@ export interface NavItem {
   icon: LucideIcon
   /** Match only the exact path (for index routes). */
   end?: boolean
-  badgeKey?: 'unreadNotifications' | 'reviewQueue'
+  badgeKey?: 'unreadNotifications'
   /** Custom active rule, for sections whose child pages aren't nested under one prefix. */
   isActive?: (pathname: string) => boolean
 }
@@ -49,9 +49,15 @@ export const NAVIGATION: Record<Role, NavItem[]> = {
   ],
   faculty: [
     { to: '/faculty', label: 'Dashboard', icon: LayoutDashboard, end: true },
-    { to: '/faculty/queue', label: 'Review Queue', icon: Inbox, badgeKey: 'reviewQueue', isActive: (p) => p === '/faculty/queue' || p.startsWith('/faculty/review/') },
-    { to: '/faculty/submissions', label: 'All Submissions', icon: ListChecks },
     { to: '/faculty/students', label: 'Students', icon: GraduationCap },
+    {
+      to: '/faculty/batches',
+      label: 'Batch Achievements',
+      icon: Files,
+      // The batch lists and each record's detail page.
+      isActive: (p) => p === '/faculty/batches' || p.startsWith('/faculty/records/'),
+    },
+    { to: '/faculty/reports', label: 'Academic Reports', icon: FileSpreadsheet },
     { to: '/faculty/profile', label: 'Profile', icon: UserRound },
   ],
   admin: [
@@ -68,6 +74,6 @@ export const NAVIGATION: Record<Role, NavItem[]> = {
 
 export const ROLE_LABEL: Record<Role, string> = {
   student: 'Student passport',
-  faculty: 'Faculty review desk',
+  faculty: 'Faculty records',
   admin: 'Records administration',
 }

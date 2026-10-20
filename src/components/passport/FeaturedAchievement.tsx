@@ -2,20 +2,21 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, Stamp } from 'lucide-react'
 import { formatDate } from '../../lib/format'
 import type { Achievement } from '../../types'
-import { StatusBadge } from '../ui/StatusBadge'
+import { ResultBadge } from '../ui/StatusBadge'
 
 /**
- * The student's most notable verified achievement, set like a pressed page
- * with a seal. Shows an honest empty state when nothing is verified yet.
+ * The student's most notable achievement, chosen by the result they
+ * recorded and set like a pressed page with a seal. Shows an honest empty
+ * state until they have submitted something.
  */
 export function FeaturedAchievement({ achievement, href }: { achievement: Achievement | null; href?: string }) {
   if (!achievement || !href) {
     return (
       <section aria-labelledby="featured-heading" className="rounded-md border border-dashed border-line-strong bg-parchment/40 p-5">
         <h2 id="featured-heading" className="label-archival">Featured achievement</h2>
-        <p className="mt-3 font-serif text-[15px] text-navy-900">Nothing verified yet</p>
+        <p className="mt-3 font-serif text-[15px] text-navy-900">Nothing here yet</p>
         <p className="mt-1 text-[13px] text-ink-muted">
-          Once a reviewer verifies one of your certificates, your most notable achievement will be featured here.
+          Add your first certificate and your most notable achievement will be featured here.
         </p>
       </section>
     )
@@ -38,7 +39,7 @@ export function FeaturedAchievement({ achievement, href }: { achievement: Achiev
         </div>
       </dl>
       <div className="mt-5 flex items-center justify-between gap-3 border-t border-line pt-3">
-        <StatusBadge status={a.status} />
+        <ResultBadge type={a.achievementType} position={a.position} />
         <Link to={href} className="inline-flex items-center gap-1 text-[13px] font-medium text-navy-800 hover:underline">
           View Details <ArrowRight className="size-3.5" aria-hidden />
           <span className="sr-only">: {a.eventName}</span>

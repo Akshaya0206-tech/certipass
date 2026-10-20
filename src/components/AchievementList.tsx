@@ -14,7 +14,7 @@ import type { LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { formatDate } from '../lib/format'
 import type { Achievement, AchievementCategory } from '../types'
-import { StatusBadge } from './ui/StatusBadge'
+import { ResultBadge, StatusBadge } from './ui/StatusBadge'
 
 export const CATEGORY_ICON: Record<AchievementCategory, LucideIcon> = {
   Hackathon: Code2,
@@ -63,7 +63,10 @@ export function AchievementList({ achievements, hrefFor }: AchievementListProps)
           </div>
           <div className="flex items-center justify-between gap-3 pl-[54px] sm:justify-end sm:pl-0">
             <span className="hidden font-mono text-[11px] text-ink-muted lg:inline">{a.reference}</span>
-            <StatusBadge status={a.status} />
+            <span className="flex items-center gap-1.5">
+              <ResultBadge type={a.achievementType} />
+              {a.status === 'archived' && <StatusBadge status={a.status} compact />}
+            </span>
             <Link
               to={hrefFor(a)}
               className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-medium text-navy-800 hover:bg-parchment"

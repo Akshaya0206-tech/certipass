@@ -14,7 +14,7 @@ export const draftHref = (id: string) => `/student/achievements/new?draft=${enco
 
 /**
  * Unfinished submissions. Styled with dashed borders and a "Draft" tag so
- * they are never mistaken for submitted or verified achievements.
+ * they are never mistaken for submitted achievements.
  */
 export function DraftList({ drafts, compact }: { drafts: AchievementDraft[]; compact?: boolean }) {
   const student = useStudent()

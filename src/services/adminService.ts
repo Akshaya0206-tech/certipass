@@ -2,31 +2,49 @@
  * Admin management — mock service.
  *
  * Accounts (view, edit permitted fields, activate/deactivate, create faculty),
- * the achievement register (search, filter, sort, CSV export) and the activity
- * feed. Figures and charts live in analyticsService.ts.
+ * the achievement register (search, filter, sort, CSV export), archiving and
+ * the activity feed. Figures and charts live in analyticsService.ts.
  *
  * Every change requires a signed-in administrator (services/auth/actor.ts)
- * and is written to the audit trail. Records are never deleted: accounts are
- * deactivated, and achievements are read-only for administrators so the
- * faculty verification workflow can't be bypassed from here.
+ * and is written to the audit trail. Nothing is ever deleted: accounts are
+ * deactivated, and a record that should leave the active register is archived,
+ * which keeps its details, result and certificate exactly as submitted.
+ *
+ * Administrators do not judge achievements. Archiving is housekeeping, not a
+ * verdict, and it is the only change an administrator can make to a record.
  *
  * Prototype note: these checks run in the browser. They keep the prototype
  * consistent; they are not security. A backend must enforce them.
  */
-import { STATUS_ORDER, statusLabel } from '../domain/status'
+import { batchCodeOf, batchLabel } from '../domain/batch'
+import { RESULT_GROUPS, resultGroupOf } from '../domain/result'
+import type { ResultGroup } from '../domain/result'
+import { isActiveRecord, MAX_NOTE_LENGTH, RECORD_STATUS_ORDER, recordStatusLabel } from '../domain/status'
 import { toCsv } from '../lib/csv'
 import type { CsvValue } from '../lib/csv'
-import type { Achievement, AchievementCategory, AdminUser, AuditEvent, FacultyUser, StudentUser, SubmissionStatus, User, Year } from '../types'
+import type {
+  Achievement,
+  AchievementCategory,
+  AdminUser,
+  AuditEvent,
+  FacultyUser,
+  RecordEvent,
+  RecordStatus,
+  StudentUser,
+  User,
+  Year,
+} from '../types'
 import { activeDepartments, departmentName, getAcademicConfig, isActiveDepartment, isKnownDepartment, isKnownSection } from './academicService'
 import { categoryLabel } from './achievementValidation'
 import {
   formatRate,
-  getAchievementStatusDistribution,
   getAchievementTrends,
   getAdminOverview,
+  getAwardRate,
+  getBatchAchievementStats,
   getCategoryAchievementStats,
   getDepartmentAchievementStats,
-  getVerificationRate,
+  getResultDistribution,
 } from './analyticsService'
 import type { TimeRange } from './analyticsService'
 import { PermissionError, requireActor } from './auth/actor'
@@ -202,35 +220,7 @@ export async function updateUserByAdmin(userId: string, edit: UserEdit): Promise
   return updated
 }
 
-// ── Account details ──────────────────────────────────────────────────────────
-
-export interface ReviewActivityItem {
-  at: string
-  action: string
-  achievementId: string
-  eventName: string
-  reference: string
-}
-
-const REVIEW_ACTION_LABEL: Record<SubmissionStatus, string> = { under_review: 'Started review', needs_attention: 'Requested correction', verified: 'Verified', submitted: 'Returned to queue' }
-
-/** A reviewer's recorded actions, newest first, taken from the records' own status history. */
-export function getFacultyReviewActivity(faculty: Pick<FacultyUser, 'id' | 'fullName'>, achievements: Achievement[] = getState().achievements): ReviewActivityItem[] {
-  const items: ReviewActivityItem[] = []
-  for (const a of achievements) {
-    a.history.forEach((h, i) => {
-      if (h.kind !== 'status') return
-      // Older entries have no actorId; fall back to the recorded name.
-      const mine = h.actorId ? h.actorId === faculty.id : h.byName === faculty.fullName
-      if (!mine) return
-      const reopened = h.status === 'under_review' && (h.fromStatus ?? a.history[i - 1]?.status) === 'verified'
-      items.push({ at: h.at, action: reopened ? 'Reopened review' : REVIEW_ACTION_LABEL[h.status], achievementId: a.id, eventName: a.eventName, reference: a.reference })
-    })
-  }
-  return items.sort((x, y) => y.at.localeCompare(x.at))
-}
-
-// ── Achievement register ─────────────────────────────────────────────────────
+// ── Achievement register ─────────────────────────────────────────────────────// ── Achievement register ─────────────────────────────────────────────────────
 
 export interface AdminRecordRow {
   achievement: Achievement
@@ -239,21 +229,26 @@ export interface AdminRecordRow {
   department: string
   year: number | null
   section: string
-  reviewerName: string
+  /** Admission-year batch code, derived from the register number. */
+  batch: string
 }
 
-export type RecordSort = 'date_desc' | 'date_asc' | 'status'
+export type RecordSort = 'date_desc' | 'date_asc' | 'result'
 export const RECORD_SORT_OPTIONS: { value: RecordSort; label: string }[] = [
   { value: 'date_desc', label: 'Newest submitted' },
   { value: 'date_asc', label: 'Oldest submitted' },
-  { value: 'status', label: 'By status' },
+  { value: 'result', label: 'By recorded result' },
 ]
 
 export interface RecordFilters {
   query?: string
-  status?: SubmissionStatus | 'all'
+  /** Record state. Archived records are left out unless this asks for them. */
+  status?: RecordStatus | 'all'
   department?: string
   year?: string
+  batch?: string
+  /** Recorded achievement result. */
+  result?: ResultGroup | 'all'
   category?: AchievementCategory | 'all'
   sort?: RecordSort
 }
@@ -263,7 +258,12 @@ export interface RecordFilters {
  * and are never included), with search and filters applied together.
  * Search covers student name, register number, event name and reference ID.
  */
-export function getAdminRecords(filters: RecordFilters = {}, achievements: Achievement[] = getState().achievements, users: User[] = getState().users): AdminRecordRow[] {
+export function getAdminRecords(
+  filters: RecordFilters = {},
+  achievements: Achievement[] = getState().achievements,
+  users: User[] = getState().users,
+  now = new Date(),
+): AdminRecordRow[] {
   const byId = new Map(users.map((u) => [u.id, u]))
   const q = filters.query?.trim().toLowerCase()
   const rows: AdminRecordRow[] = []
@@ -277,21 +277,30 @@ export function getAdminRecords(filters: RecordFilters = {}, achievements: Achie
       department: student?.department ?? '',
       year: student?.year ?? null,
       section: student?.section ?? '',
-      reviewerName: (a.reviewerId && byId.get(a.reviewerId)?.fullName) || '',
+      batch: student ? batchCodeOf(student, now) : 'unknown',
     }
-    if (filters.status && filters.status !== 'all' && a.status !== filters.status) continue
+    // Archived records stay out of the register unless asked for by name.
+    if (!filters.status || filters.status === 'all' ? !isActiveRecord(a.status) : a.status !== filters.status) continue
     if (filters.category && filters.category !== 'all' && a.category !== filters.category) continue
+    if (filters.result && filters.result !== 'all' && resultGroupOf(a) !== filters.result) continue
     if (filters.department && filters.department !== 'all' && row.department !== filters.department) continue
     if (filters.year && filters.year !== 'all' && String(row.year) !== filters.year) continue
+    if (filters.batch && filters.batch !== 'all' && row.batch !== filters.batch) continue
     if (q && !`${row.studentName} ${row.registerNumber} ${a.eventName} ${a.reference}`.toLowerCase().includes(q)) continue
     rows.push(row)
   }
-  const tie = (x: AdminRecordRow, y: AdminRecordRow) => x.achievement.reference.localeCompare(y.achievement.reference) || x.achievement.id.localeCompare(y.achievement.id)
+  const tie = (x: AdminRecordRow, y: AdminRecordRow) =>
+    x.achievement.reference.localeCompare(y.achievement.reference) || x.achievement.id.localeCompare(y.achievement.id)
   const byDateDesc = (x: AdminRecordRow, y: AdminRecordRow) => y.achievement.submittedAt.localeCompare(x.achievement.submittedAt) || tie(x, y)
   if (filters.sort === 'date_asc') return rows.sort((x, y) => x.achievement.submittedAt.localeCompare(y.achievement.submittedAt) || tie(x, y))
-  if (filters.sort === 'status') return rows.sort((x, y) => STATUS_ORDER.indexOf(x.achievement.status) - STATUS_ORDER.indexOf(y.achievement.status) || byDateDesc(x, y))
+  if (filters.sort === 'result') {
+    const order = (r: AdminRecordRow) => RESULT_ORDER.indexOf(resultGroupOf(r.achievement))
+    return rows.sort((x, y) => order(x) - order(y) || byDateDesc(x, y))
+  }
   return rows.sort(byDateDesc)
 }
+
+const RESULT_ORDER: ResultGroup[] = ['winner', 'runner_up', 'participant', 'other']
 
 export const RECORD_EXPORT_HEADERS = [
   'Reference ID',
@@ -305,12 +314,12 @@ export const RECORD_EXPORT_HEADERS = [
   'Organiser',
   'Event date',
   'Location',
-  'Achievement type',
+  'Batch',
+  'Achievement result',
   'Prize or position',
-  'Status',
+  'Record state',
   'Submitted at',
   'Last updated',
-  'Reviewer',
   'Certificate file',
   'Certificate type',
 ]
@@ -332,12 +341,12 @@ export function exportFilteredAchievements(rows: AdminRecordRow[]): string {
     a.organizer,
     a.eventDate,
     a.location ?? '',
+    batchLabel(r.batch),
     a.achievementType,
     a.position ?? '',
-    statusLabel(a.status),
+    recordStatusLabel(a.status),
     a.submittedAt,
     a.updatedAt,
-    r.reviewerName,
     a.certificate?.fileName ?? '',
     a.certificate?.fileType ? (ACCEPTED_TYPES[a.certificate.fileType] ?? '') : '',
   ])
@@ -349,17 +358,29 @@ export function exportAnalyticsSummary(achievements: Achievement[], users: User[
   const overview = getAdminOverview(users, achievements)
   const rows: CsvValue[][] = [
     ['Overview', 'Time range', rangeLabel],
-    ['Overview', 'Total submitted achievements', overview.totalRecords],
-    ['Overview', 'Verified', overview.verified],
-    ['Overview', 'Pending review (submitted + under review)', overview.pendingVerification],
-    ['Overview', 'Needs attention', overview.needsAttention],
-    ['Overview', 'Verification rate (verified / total)', formatRate(getVerificationRate(achievements))],
-    ...getAchievementStatusDistribution(achievements).map((s): CsvValue[] => ['Status', statusLabel(s.status), s.count]),
+    ['Overview', 'Total achievement records', overview.totalRecords],
+    ['Overview', 'Winners', overview.winner],
+    ['Overview', 'Runners-up', overview.runner_up],
+    ['Overview', 'Participants', overview.participant],
+    ['Overview', 'Other / unclassified', overview.other],
+    ['Overview', 'Awarded share (non-participant / total)', formatRate(getAwardRate(achievements))],
+    ['Overview', 'Archived records', overview.archived],
+    ...getResultDistribution(achievements).map((r): CsvValue[] => ['Result', RESULT_GROUPS[r.group].label, r.count]),
+    ...RECORD_STATUS_ORDER.map((status): CsvValue[] => [
+      'Record state',
+      recordStatusLabel(status),
+      achievements.filter((a) => a.status === status).length,
+    ]),
     ...getDepartmentAchievementStats(achievements, users, getAcademicConfig().departments).flatMap((d): CsvValue[][] => [
       ['Department', `${d.code} total`, d.total],
-      ['Department', `${d.code} verified`, d.verified],
-      ['Department', `${d.code} pending`, d.pending],
+      ['Department', `${d.code} winners`, d.counts.winner],
+      ['Department', `${d.code} runners-up`, d.counts.runner_up],
+      ['Department', `${d.code} participants`, d.counts.participant],
       ['Department', `${d.code} students with at least one achievement`, d.studentsWithAchievements],
+    ]),
+    ...getBatchAchievementStats(achievements, users, now).flatMap((b): CsvValue[][] => [
+      ['Batch', `${b.label} records`, b.counts.total],
+      ['Batch', `${b.label} winners`, b.counts.winner],
     ]),
     ...getCategoryAchievementStats(achievements).map((c): CsvValue[] => ['Category', c.category, c.count]),
     ...getAchievementTrends(achievements, range, now).buckets.map((b): CsvValue[] => ['Submissions over time', b.label, b.count]),
@@ -369,15 +390,13 @@ export function exportAnalyticsSummary(achievements: Achievement[], users: User[
 
 // ── Activity ─────────────────────────────────────────────────────────────────
 
-export type AdminActivityType = 'submitted' | 'resubmitted' | 'review_started' | 'correction_requested' | 'verified' | 'review_reopened' | 'account_created' | 'admin_action'
+export type AdminActivityType = 'submitted' | 'updated' | 'archived' | 'restored' | 'account_created' | 'admin_action'
 
 export const ACTIVITY_TYPE_LABEL: Record<AdminActivityType, string> = {
   submitted: 'Submissions',
-  resubmitted: 'Resubmissions',
-  review_started: 'Reviews started',
-  correction_requested: 'Correction requests',
-  verified: 'Verifications',
-  review_reopened: 'Reviews reopened',
+  updated: 'Record updates',
+  archived: 'Records archived',
+  restored: 'Records restored',
   account_created: 'Accounts created',
   admin_action: 'Admin actions',
 }
@@ -393,30 +412,26 @@ export interface AdminActivityItem {
   userId?: string
 }
 
-function historyType(a: Achievement, i: number): AdminActivityType {
-  const h = a.history[i]
-  if (h.kind === 'submitted') return 'submitted'
-  if (h.kind === 'resubmitted') return 'resubmitted'
-  if (h.status === 'needs_attention') return 'correction_requested'
-  if (h.status === 'verified') return 'verified'
-  return (h.fromStatus ?? a.history[i - 1]?.status) === 'verified' ? 'review_reopened' : 'review_started'
+function historyType(h: RecordEvent): AdminActivityType {
+  if (h.kind === 'updated') return 'updated'
+  if (h.kind === 'archived') return 'archived'
+  if (h.kind === 'restored') return 'restored'
+  return 'submitted'
 }
 
 const HISTORY_TITLE: Record<AdminActivityType, string> = {
   submitted: 'New achievement submitted',
-  resubmitted: 'Student resubmitted an achievement',
-  review_started: 'Achievement moved into review',
-  correction_requested: 'Correction requested',
-  verified: 'Achievement verified',
-  review_reopened: 'Review reopened',
+  updated: 'Student updated an achievement',
+  archived: 'Achievement record archived',
+  restored: 'Achievement record restored',
   account_created: 'Account created',
   admin_action: 'Admin action',
 }
 
 /**
  * Institution-wide activity, newest first. Built only from what is actually
- * recorded: each record's status history, account creation dates, and the
- * audit trail of admin actions. Nothing is invented to fill the feed.
+ * recorded: each record's own history, account creation dates, and the audit
+ * trail of admin actions. Nothing is invented to fill the feed.
  */
 export function getAdminActivity(
   state: { achievements: Achievement[]; users: User[]; audit: AuditEvent[] } = getState(),
@@ -425,7 +440,7 @@ export function getAdminActivity(
   const items: AdminActivityItem[] = []
   for (const a of state.achievements) {
     a.history.forEach((h, i) => {
-      const type = historyType(a, i)
+      const type = historyType(h)
       items.push({ id: `${a.id}-${i}`, type, at: h.at, title: HISTORY_TITLE[type], detail: `${a.eventName} · ${a.reference}`, actor: h.byName, achievementId: a.id })
     })
   }
@@ -441,6 +456,66 @@ export function getAdminActivity(
   const filtered = options.type && options.type !== 'all' ? items.filter((i) => i.type === options.type) : items
   const sorted = filtered.sort((x, y) => y.at.localeCompare(x.at) || x.id.localeCompare(y.id))
   return options.limit ? sorted.slice(0, options.limit) : sorted
+}
+
+// ── Archiving ────────────────────────────────────────────────────────────────
+
+/**
+ * Archive a record, or bring it back.
+ *
+ * This is the only change an administrator can make to an achievement, and
+ * it is housekeeping rather than a judgement: an archived record keeps its
+ * details, recorded result, certificate metadata, comments and history in
+ * full, and simply stops appearing in active lists, counts and reports.
+ * The change is appended to the record's history and the audit trail.
+ */
+export async function setRecordArchived(achievementId: string, archived: boolean, reason?: string): Promise<Achievement> {
+  const admin = requireActor('admin')
+  const note = reason?.trim().slice(0, MAX_NOTE_LENGTH) || undefined
+  await delay(300)
+
+  let result: Achievement | undefined
+  let failure: Error | undefined
+  setState((s) => {
+    const current = s.achievements.find((a) => a.id === achievementId)
+    if (!current) {
+      failure = new AdminError('not_found', 'This achievement record no longer exists.')
+      return s
+    }
+    const next: RecordStatus = archived ? 'archived' : 'submitted'
+    if (current.status === next) {
+      failure = new AdminError('not_allowed', archived ? 'This record is already archived.' : 'This record is already active.')
+      return s
+    }
+    const at = new Date().toISOString()
+    const updated: Achievement = {
+      ...current,
+      status: next,
+      updatedAt: at,
+      history: [
+        ...current.history,
+        {
+          status: next,
+          fromStatus: current.status,
+          at,
+          byName: admin.fullName,
+          actorId: admin.id,
+          actorRole: 'admin',
+          kind: archived ? 'archived' : 'restored',
+          note,
+        },
+      ],
+    }
+    result = updated
+    return { ...s, achievements: s.achievements.map((a) => (a.id === current.id ? updated : a)) }
+  })
+  if (failure) throw failure
+  recordAudit(
+    admin,
+    archived ? 'record_archived' : 'record_restored',
+    `${archived ? 'Archived' : 'Restored'} ${result!.reference} — ${result!.eventName}${note ? `: ${note}` : ''}`,
+  )
+  return result!
 }
 
 /** Departments a new account may be placed in. */

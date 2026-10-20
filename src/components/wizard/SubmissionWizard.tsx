@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Check, CircleAlert, CircleDashed, Info, LogOut, Save, Send } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, CircleDashed, Info, LogOut, Save, Send } from 'lucide-react'
 import { useToast } from '../../context/ToastContext'
 import { useStudent } from '../../hooks/useData'
 import { cn } from '../../lib/cn'
-import { formatDate, formatRelative } from '../../lib/format'
+import { formatRelative } from '../../lib/format'
 import {
   emptyForm,
   formFromAchievement,
@@ -15,14 +15,13 @@ import {
   validateStep,
   WIZARD_STEPS,
 } from '../../services/achievementValidation'
-import { getCorrectionRequest } from '../../services/passportService'
 import { ACCEPTED_LABEL, FILE_RULES, formatBytes, inspectCertificateFile, storeCertificate } from '../../services/fileService'
 import {
   createDraft,
   getPossibleDuplicates,
-  resubmitAchievement,
   SubmissionError,
   submitAchievement,
+  updateAndRecordEdit,
   updateDraft,
 } from '../../services/submissionService'
 import type { Achievement, AchievementDraft, AchievementFormData, FormField, ValidationError } from '../../types'
@@ -35,7 +34,7 @@ import { UploadStep } from './UploadStep'
 import type { SelectedFile } from './UploadStep'
 import { AdditionalStep, CategoryStep, EventStep, ResultStep } from './WizardSteps'
 
-export type WizardMode = { kind: 'create' } | { kind: 'draft'; draft: AchievementDraft } | { kind: 'resubmit'; achievement: Achievement }
+export type WizardMode = { kind: 'create' } | { kind: 'draft'; draft: AchievementDraft } | { kind: 'edit'; achievement: Achievement }
 
 const STEP_TITLES = [
   'What kind of achievement are you adding?',
@@ -67,10 +66,10 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
   const student = useStudent()
   const toast = useToast()
   const navigate = useNavigate()
-  const resubmit = mode.kind === 'resubmit' ? mode.achievement : null
+  const editing = mode.kind === 'edit' ? mode.achievement : null
   const initialDraft = mode.kind === 'draft' ? mode.draft : null
 
-  const [form, setForm] = useState<AchievementFormData>(() => (resubmit ? formFromAchievement(resubmit) : (initialDraft?.form ?? emptyForm())))
+  const [form, setForm] = useState<AchievementFormData>(() => (editing ? formFromAchievement(editing) : (initialDraft?.form ?? emptyForm())))
   const [step, setStep] = useState(() => initialDraft?.step ?? 0)
   const [attempted, setAttempted] = useState<Set<number>>(new Set())
   const [selected, setSelected] = useState<SelectedFile | null>(null)
@@ -87,7 +86,7 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
   const inFlight = useRef(false)
   const headingRef = useRef<HTMLHeadingElement>(null)
 
-  const hasCertificate = !!selected || !!resubmit
+  const hasCertificate = !!selected || !!editing
   const dirty = fingerprint(form, selected?.file.name) !== baseline
   const states = useMemo(() => stepStates(form, hasCertificate), [form, hasCertificate])
   const stepErrors = useMemo(() => validateStep(step, form, hasCertificate), [step, form, hasCertificate])
@@ -135,7 +134,7 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
 
   /** Create or update the draft. Returns the saved draft, or null when saving isn't applicable or failed. */
   function saveDraft(atStep = step, quiet = false, values = form): AchievementDraft | null {
-    if (resubmit) return null
+    if (editing) return null
     try {
       const saved = draft ? updateDraft(student.id, draft.id, values, atStep, draftCertificate) : createDraft(student.id, values, atStep, draftCertificate)
       if (!draft) onDraftCreated?.(saved.id)
@@ -152,7 +151,7 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
   // ── Navigation ──
   function goTo(target: number, values = form) {
     // An existing draft keeps up with the student as they move, so progress isn't lost.
-    if (draft && !resubmit) saveDraft(target, true, values)
+    if (draft && !editing) saveDraft(target, true, values)
     setStep(target)
   }
 
@@ -227,7 +226,7 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
       return
     }
     if (!confirmedDuplicates) {
-      const possible = getPossibleDuplicates(student.id, form, resubmit?.id)
+      const possible = getPossibleDuplicates(student.id, form, editing?.id)
       if (possible.length) {
         setDuplicates(possible)
         requestAnimationFrame(() => document.querySelector('[data-wizard-body] [role="alert"]')?.scrollIntoView({ block: 'center' }))
@@ -238,24 +237,27 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
     setSubmitting(true)
     try {
       const certificate = selected ? await storeCertificate(selected.file, selected.type) : undefined
-      const result = resubmit
-        ? await resubmitAchievement(student.id, resubmit.id, form, { certificate, noteToReviewer: note })
+      const result = editing
+        ? await updateAndRecordEdit(student.id, editing.id, form, { certificate, note })
         : await submitAchievement(student.id, form, certificate, { draftId: draft?.id })
-      toast.success(resubmit ? 'Resubmitted for review' : 'Certificate submitted', `${result.reference} is in the review queue.`)
+      toast.success(
+        editing ? 'Changes saved' : 'Certificate submitted',
+        editing ? `${result.reference} has been updated.` : `${result.reference} has been added to your passport.`,
+      )
       navigate(`/student/achievements/${result.achievement.id}/submitted`, { replace: true })
     } catch (err) {
       if (err instanceof SubmissionError && err.errors.length) {
         setAttempted(new Set([0, 1, 2, 3, 4]))
         setStep(err.errors[0].step)
       }
-      toast.error(resubmit ? 'Resubmission failed' : 'Submission failed', err instanceof Error ? err.message : 'Please try again.')
+      toast.error(editing ? 'Changes not saved' : 'Submission failed', err instanceof Error ? err.message : 'Please try again.')
       setSubmitting(false)
       inFlight.current = false
     }
   }
 
   // ── Exit ──
-  const exitTarget = resubmit ? `/student/achievements/${resubmit.id}` : '/student/achievements'
+  const exitTarget = editing ? `/student/achievements/${editing.id}` : '/student/achievements'
   function requestExit() {
     if (dirty) setExitOpen(true)
     else navigate(exitTarget)
@@ -263,10 +265,9 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
 
   const reviewCertificate = selected
     ? { fileName: selected.file.name, fileType: selected.type, sizeBytes: selected.file.size }
-    : resubmit?.certificate
+    : editing?.certificate
   const completed = states.filter((s) => s === 'complete').length
   const remaining = states.filter((s) => s === 'incomplete').length
-  const request = resubmit ? getCorrectionRequest(resubmit) : undefined
   const stepProps = { form, set, error }
 
   return (
@@ -274,22 +275,22 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
       <div>
         <Breadcrumbs
           items={
-            resubmit
-              ? [{ label: 'My Achievements', to: '/student/achievements' }, { label: resubmit.eventName, to: `/student/achievements/${resubmit.id}` }, { label: 'Edit and resubmit' }]
+            editing
+              ? [{ label: 'My Achievements', to: '/student/achievements' }, { label: editing.eventName, to: `/student/achievements/${editing.id}` }, { label: 'Edit' }]
               : [{ label: 'Dashboard', to: '/student' }, { label: 'My Achievements', to: '/student/achievements' }, { label: draft ? 'Draft' : 'Add Achievement' }]
           }
         />
         <PageHeader
-          kicker={resubmit ? resubmit.reference : draft ? 'Draft entry' : 'New entry'}
-          title={resubmit ? 'Edit and Resubmit' : 'Add Achievement'}
+          kicker={editing ? editing.reference : draft ? 'Draft entry' : 'New entry'}
+          title={editing ? 'Edit Achievement' : 'Add Achievement'}
           description={
-            resubmit
-              ? 'Make the changes your reviewer asked for, then resubmit. Your earlier comments and history stay with the record.'
+            editing
+              ? 'Correct the details or replace the certificate. Your earlier comments and history stay with the record, and nothing has to be approved.'
               : 'A few short steps to add a page to your passport. Only the essentials are required, and you can save a draft at any point.'
           }
           actions={
             <>
-              {!resubmit && (
+              {!editing && (
                 <Button variant="secondary" onClick={() => saveDraft()} disabled={submitting || (!dirty && !!draft)} icon={<Save className="size-4" aria-hidden />}>
                   {draft && !dirty ? 'Draft saved' : 'Save Draft'}
                 </Button>
@@ -301,17 +302,6 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
           }
         />
       </div>
-
-      {request && (
-        <aside aria-label="Requested correction" className="relative overflow-hidden rounded-md border border-terracotta-300 bg-terracotta-50/70 p-4 pl-5 text-sm">
-          <span className="absolute inset-y-0 left-0 w-1 bg-terracotta-500" aria-hidden />
-          <p className="flex items-center gap-2 font-medium text-navy-900">
-            <CircleAlert className="size-4 text-terracotta-600" aria-hidden /> Correction requested by {request.authorName}
-          </p>
-          <p className="mt-1 whitespace-pre-line text-ink-soft">“{request.body}”</p>
-          <p className="mt-1 text-[12px] text-ink-muted">{formatDate(request.createdAt)}</p>
-        </aside>
-      )}
 
       {initialDraft && (
         <p className="flex items-start gap-2.5 rounded-md border border-lavender-200 bg-lavender-50 px-4 py-3 text-[13px] text-ink-soft">
@@ -332,7 +322,7 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
             {OPTIONAL_STEPS.includes(step) && ' · optional'}
           </p>
           <h2 id="wizard-step-title" ref={headingRef} tabIndex={-1} className="mt-1.5 font-serif text-[18px] leading-snug text-navy-900 focus:outline-none">
-            {isReview && resubmit ? 'Review before you resubmit' : STEP_TITLES[step]}
+            {isReview && editing ? 'Review before you editing' : STEP_TITLES[step]}
           </h2>
           <p className="mt-1 mb-7 text-sm text-ink-muted">{STEP_GUIDANCE[step]}</p>
 
@@ -351,7 +341,7 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
                 setFileError(undefined)
               }}
               eventName={form.eventName}
-              existing={resubmit?.certificate}
+              existing={editing?.certificate}
               missingFromDraft={lastSavedMissingFile}
             />
           )}
@@ -366,7 +356,7 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
                 duplicates={duplicates}
                 onConfirmDuplicates={() => submit(true)}
                 submitting={submitting}
-                resubmitting={!!resubmit}
+                resubmitting={!!editing}
                 note={note}
                 onNoteChange={setNote}
               />
@@ -401,9 +391,9 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
                   onClick={() => submit(false)}
                   loading={submitting}
                   disabled={!reviewCertificate || duplicates.length > 0}
-                  icon={resubmit ? <Send className="size-4" aria-hidden /> : <Check className="size-4" aria-hidden />}
+                  icon={editing ? <Send className="size-4" aria-hidden /> : <Check className="size-4" aria-hidden />}
                 >
-                  {submitting ? 'Submitting…' : resubmit ? 'Resubmit Certificate' : 'Submit Certificate'}
+                  {submitting ? 'Submitting…' : editing ? 'Resubmit Certificate' : 'Submit Certificate'}
                 </Button>
               ) : (
                 <Button onClick={next} disabled={checking} iconRight={<ArrowRight className="size-4" aria-hidden />}>
@@ -435,7 +425,7 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
               </li>
             ))}
           </ol>
-          {!resubmit && (
+          {!editing && (
             <p className="mt-5 border-t border-line pt-3 text-[12px] text-ink-muted">
               {draft ? (dirty ? 'Unsaved changes since the last draft save.' : `Draft saved ${formatRelative(draft.updatedAt)}.`) : 'Not saved yet. Use Save Draft to finish later.'}
             </p>
@@ -448,7 +438,7 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
         onClose={() => setExitOpen(false)}
         size="sm"
         title="Leave without finishing?"
-        description={resubmit ? 'Your changes haven’t been resubmitted.' : 'You have unsaved changes.'}
+        description={editing ? 'Your changes haven’t been resubmitted.' : 'You have unsaved changes.'}
         footer={
           <>
             <Button variant="ghost" onClick={() => setExitOpen(false)}>
@@ -463,7 +453,7 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
             >
               Discard changes
             </Button>
-            {!resubmit && (
+            {!editing && (
               <Button
                 onClick={() => {
                   if (saveDraft()) {
@@ -479,7 +469,7 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
         }
       >
         <p className="text-sm text-ink-soft">
-          {resubmit
+          {editing
             ? 'If you leave now, the achievement stays as it was and still needs your attention.'
             : draft
               ? 'Save to update your draft, or discard to keep the draft as it was last saved.'

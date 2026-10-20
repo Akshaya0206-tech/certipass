@@ -126,8 +126,8 @@ export default function AcademicConfigPage() {
             </thead>
             <tbody>
               {config.departments.map((d) => {
-                const u = usage.departments[d.code] ?? { students: 0, faculty: 0, reviewers: 0 }
-                const inUse = u.students + u.faculty + u.reviewers > 0
+                const u = usage.departments[d.code] ?? { students: 0, faculty: 0, covering: 0 }
+                const inUse = u.students + u.faculty + u.covering > 0
                 const isActive = d.active !== false
                 return (
                   <tr key={d.code} className="border-b border-line/70 last:border-0">

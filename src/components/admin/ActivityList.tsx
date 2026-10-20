@@ -1,17 +1,15 @@
 import { Link } from 'react-router-dom'
-import { BadgeCheck, CircleAlert, FilePen, FileUp, ScanSearch, Settings2, Undo2, UserPlus } from 'lucide-react'
+import { Archive, ArchiveRestore, FilePen, FileUp, Settings2, UserPlus } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { formatDateTime, formatRelative } from '../../lib/format'
 import type { AdminActivityItem, AdminActivityType } from '../../services/adminService'
 
 const ICON: Record<AdminActivityType, { icon: LucideIcon; tone: string }> = {
-  submitted: { icon: FileUp, tone: 'text-ink-soft bg-parchment' },
-  resubmitted: { icon: FilePen, tone: 'text-ink-soft bg-parchment' },
-  review_started: { icon: ScanSearch, tone: 'text-lavender-700 bg-lavender-100' },
-  correction_requested: { icon: CircleAlert, tone: 'text-terracotta-600 bg-terracotta-50' },
-  verified: { icon: BadgeCheck, tone: 'text-navy-800 bg-navy-50' },
-  review_reopened: { icon: Undo2, tone: 'text-terracotta-600 bg-terracotta-50' },
+  submitted: { icon: FileUp, tone: 'text-navy-800 bg-navy-50' },
+  updated: { icon: FilePen, tone: 'text-ink-soft bg-parchment' },
+  archived: { icon: Archive, tone: 'text-ink-muted bg-parchment' },
+  restored: { icon: ArchiveRestore, tone: 'text-ink-soft bg-parchment' },
   account_created: { icon: UserPlus, tone: 'text-lavender-700 bg-lavender-100' },
   admin_action: { icon: Settings2, tone: 'text-navy-800 bg-navy-50' },
 }

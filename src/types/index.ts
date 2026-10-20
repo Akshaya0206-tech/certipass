@@ -1,8 +1,14 @@
 export type Role = 'student' | 'faculty' | 'admin'
 
-export type SubmissionStatus = 'submitted' | 'under_review' | 'needs_attention' | 'verified'
+/**
+ * The record lifecycle. Drafts are deliberately not a status — an unfinished
+ * submission is a separate AchievementDraft record (see below).
+ *  - submitted: saved by the student and immediately available to faculty.
+ *  - archived:  retired by an administrator; kept, but out of active lists.
+ */
+export type RecordStatus = 'submitted' | 'archived'
 
-export const SUBMISSION_STATUSES: SubmissionStatus[] = ['submitted', 'under_review', 'needs_attention', 'verified']
+export const RECORD_STATUSES: RecordStatus[] = ['submitted', 'archived']
 
 export const ACHIEVEMENT_CATEGORIES = [
   'Hackathon',
@@ -55,6 +61,8 @@ export interface AcademicConfig {
 
 export type AuditAction =
   | 'faculty_created'
+  | 'record_archived'
+  | 'record_restored'
   | 'account_activated'
   | 'account_deactivated'
   | 'profile_updated'
@@ -94,8 +102,9 @@ export interface FacultyUser extends BaseUser {
   role: 'faculty'
   designation: string
   /**
-   * Departments whose students' submissions this reviewer handles.
-   * When absent, the reviewer covers only their own department.
+   * Departments whose students' records this member of faculty oversees: it
+   * scopes what they can see, nothing more. When absent, they cover only
+   * their own department.
    */
   reviewDepartments?: string[]
 }
@@ -150,14 +159,13 @@ export interface CertificateFile {
 export type CertificateFileMetadata = CertificateFile
 
 /**
- *  - general:            an ordinary message from the student or a reviewer
- *  - correction_request: the reviewer's request posted with a "needs attention" decision
- *  - review_update:      a note posted with another review action (verify, reopen, resubmit)
+ *  - general: an ordinary message from the student or a member of faculty
+ *  - note:    a note the student attached when they updated the record
  */
-export type CommentType = 'general' | 'correction_request' | 'review_update'
+export type CommentType = 'general' | 'note'
 
 /** A message on an achievement. Comments are stored on the achievement they belong to. */
-export interface ReviewComment {
+export interface RecordComment {
   id: string
   authorId: string
   authorName: string
@@ -169,23 +177,23 @@ export interface ReviewComment {
 }
 
 /**
- * One entry in a record's status history.
- *  - submitted:    first submission by the student
- *  - resubmitted:  student edited the record after a correction request
- *  - status:       a reviewer changed the status
+ * One entry in a record's history.
+ *  - submitted: first submission by the student
+ *  - updated:   the student edited the record afterwards
+ *  - archived / restored: an administrator retired or reinstated the record
  */
-export interface StatusEvent {
-  /** The status after this event. */
-  status: SubmissionStatus
+export interface RecordEvent {
+  /** The record status after this event. */
+  status: RecordStatus
   at: string
   byName: string
-  kind?: 'submitted' | 'resubmitted' | 'status'
-  /** The status before this event. Absent on the first entry and on older records. */
-  fromStatus?: SubmissionStatus
+  kind?: 'submitted' | 'updated' | 'archived' | 'restored'
+  /** The status before this event. Absent on the first entry. */
+  fromStatus?: RecordStatus
   /** Who acted. Absent on older records (byName is always present). */
   actorId?: string
   actorRole?: Role
-  /** The reason or comment recorded with the action, when one was given. */
+  /** A note recorded with the action, when one was given. */
   note?: string
 }
 
@@ -212,23 +220,14 @@ export interface Achievement {
   evidenceNote?: string
   description: string
   certificate: CertificateFile
-  status: SubmissionStatus
+  status: RecordStatus
   submittedAt: string
   updatedAt: string
-  reviewerId?: string
-  comments: ReviewComment[]
-  history: StatusEvent[]
+  comments: RecordComment[]
+  history: RecordEvent[]
 }
 
-export type NotificationType =
-  | 'welcome'
-  | 'submitted'
-  | 'resubmitted'
-  | 'review_started'
-  | 'correction_requested'
-  | 'verified'
-  | 'review_reopened'
-  | 'comment'
+export type NotificationType = 'welcome' | 'submitted' | 'updated' | 'comment'
 
 /** An in-app notification. `userId` is the only recipient. */
 export interface AppNotification {
@@ -315,6 +314,8 @@ export interface StudentRegistration {
 export interface AchievementFilters {
   query?: string
   category?: AchievementCategory | 'all'
-  status?: SubmissionStatus | 'all'
+  status?: RecordStatus | 'all'
+  /** Recorded achievement result group, e.g. only winners. */
+  result?: string | 'all'
   year?: string | 'all'
 }

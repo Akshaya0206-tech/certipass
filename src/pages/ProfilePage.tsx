@@ -7,12 +7,12 @@ import { Field, SelectInput, TextInput } from '../components/ui/FormField'
 import { PageHeader } from '../components/ui/PageHeader'
 import { useToast } from '../context/ToastContext'
 import { useAcademicConfig } from '../hooks/useAcademics'
-import { useAchievements, useRequiredUser } from '../hooks/useData'
+import { useAchievements, useRequiredUser, useUsers } from '../hooks/useData'
 import { formatDate, initials, YEAR_LABEL } from '../lib/format'
 import { summarize } from '../services/achievementService'
 import { activeSections, departmentName } from '../services/academicService'
 import { EDITABLE_FIELDS, updateProfile, validateProfile } from '../services/profileService'
-import { reviewScope } from '../services/reviewService'
+import { facultyScope } from '../services/facultyService'
 import type { ProfileErrors } from '../services/profileService'
 import type { ReactNode } from 'react'
 import type { Role } from '../types'
@@ -39,6 +39,7 @@ export default function ProfilePage() {
   const user = useRequiredUser()
   const toast = useToast()
   const achievements = useAchievements()
+  const students = useUsers().filter((u) => u.role === 'student')
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<ProfileErrors>({})
@@ -49,11 +50,16 @@ export default function ProfilePage() {
   const sectionOptions = [...new Set([...activeSections(config), ...(user.role === 'student' ? [user.section] : [])])]
   const editable = EDITABLE_FIELDS[user.role] as readonly string[]
 
+  // Students see their own records; faculty see the records in their departments.
   const stats = useMemo(() => {
     if (user.role === 'student') return summarize(achievements.filter((a) => a.studentId === user.id))
-    if (user.role === 'faculty') return summarize(achievements.filter((a) => a.reviewerId === user.id))
+    if (user.role === 'faculty') {
+      const scope = new Set(facultyScope(user))
+      const inScope = new Set(students.filter((u) => scope.has(u.department)).map((u) => u.id))
+      return summarize(achievements.filter((a) => inScope.has(a.studentId)))
+    }
     return null
-  }, [achievements, user])
+  }, [achievements, students, user])
 
   function startEditing() {
     setDraft({
@@ -99,7 +105,7 @@ export default function ProfilePage() {
       ['Section', `Section ${user.section}`],
     )
   } else if (user.role === 'faculty') {
-    rows.push(['Department', <Locked key="d">{dept?.name ?? user.department}</Locked>], ['Role', <Locked key="role">{ROLE_TITLE.faculty}</Locked>], ['Designation', user.designation], ['Reviews', <Locked key="scope">{reviewScope(user).join(', ')}</Locked>])
+    rows.push(['Department', <Locked key="d">{dept?.name ?? user.department}</Locked>], ['Role', <Locked key="role">{ROLE_TITLE.faculty}</Locked>], ['Designation', user.designation], ['Departments covered', <Locked key="scope">{facultyScope(user).join(', ')}</Locked>])
   } else {
     rows.push(['Role', <Locked key="role">{ROLE_TITLE.admin}</Locked>], ['Office', user.department])
   }
@@ -127,12 +133,12 @@ export default function ProfilePage() {
           {stats && (
             <dl className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded border border-line bg-line text-left">
               <div className="bg-white px-3 py-2.5">
-                <dt className="text-[11.5px] text-ink-muted">{user.role === 'student' ? 'Submitted' : 'Reviewed'}</dt>
+                <dt className="text-[11.5px] text-ink-muted">{user.role === 'student' ? 'Submitted' : 'Records'}</dt>
                 <dd className="font-serif text-[16px] text-navy-900">{stats.total}</dd>
               </div>
               <div className="bg-white px-3 py-2.5">
-                <dt className="text-[11.5px] text-ink-muted">Verified</dt>
-                <dd className="font-serif text-[16px] text-navy-900">{stats.verified}</dd>
+                <dt className="text-[11.5px] text-ink-muted">Winners</dt>
+                <dd className="font-serif text-[16px] text-navy-900">{stats.winner}</dd>
               </div>
             </dl>
           )}

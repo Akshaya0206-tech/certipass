@@ -15,9 +15,10 @@ import type { Achievement } from '../types'
 import { AchievementNotFound } from './AchievementDetailPage'
 
 /**
- * Edit and resubmit: the same wizard, prefilled from a record that needs
- * attention. Only the owner can open it, and only while faculty is waiting
- * on a correction — verified and in-review records are locked.
+ * Edit: the same wizard, prefilled from one of the student's own records.
+ * Only the owner can open it, and nothing has to be approved afterwards —
+ * the correction simply becomes part of the record. Archived records are
+ * locked, because only the records office can bring one back.
  */
 export default function EditAchievementPage() {
   return (
@@ -32,8 +33,8 @@ function EditGate() {
   const student = useStudent()
   const mine = useMyAchievements()
   const a = getAchievementById(student.id, id, mine)
-  // Keep the record the wizard started from: once it's resubmitted its status
-  // changes, and the wizard must stay mounted until it navigates away.
+  // Keep the record the wizard started from, so the wizard stays mounted
+  // until it navigates away even as the record updates underneath it.
   const started = useRef<Achievement | null>(null)
 
   if (!a) return <AchievementNotFound />
@@ -46,10 +47,11 @@ function EditGate() {
         <div className="paper">
           <EmptyState
             icon={Lock}
-            title="This achievement can’t be edited right now"
+            title="This achievement can’t be edited"
             body={
               <>
-                It is currently <StatusBadge status={a.status} className="mx-0.5 align-middle" />. You can edit and resubmit only when a reviewer asks for a clarification or correction.
+                It is <StatusBadge status={a.status} className="mx-0.5 align-middle" /> by the Office of Academic Records. Its details are kept in full, but they can no
+                longer be changed here. Contact the records office if it needs to be reinstated.
               </>
             }
             action={<ButtonLink to={`/student/achievements/${a.id}`} variant="secondary">Back to the achievement</ButtonLink>}
@@ -58,5 +60,5 @@ function EditGate() {
       </div>
     )
   }
-  return <SubmissionWizard key={a.id} mode={{ kind: 'resubmit', achievement: started.current }} />
+  return <SubmissionWizard key={a.id} mode={{ kind: 'edit', achievement: started.current }} />
 }

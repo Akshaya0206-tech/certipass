@@ -1,11 +1,10 @@
 import { useId, useMemo, useState } from 'react'
-import { BadgeCheck, CircleAlert, Download, Files, Inbox, Percent, Users } from 'lucide-react'
-import { BarList, ChartFrame, ColumnChart, DepartmentBars, StatusSplit } from '../components/charts/Charts'
+import { Award, Download, Files, Medal, Percent, Users, UsersRound } from 'lucide-react'
+import { BarList, ChartFrame, ColumnChart, DepartmentBars, ResultSplit } from '../components/charts/Charts'
 import { Button } from '../components/ui/Button'
 import { CHEVRON } from '../components/ui/FormField'
 import { PageHeader } from '../components/ui/PageHeader'
 import { StatLedger } from '../components/ui/StatLedger'
-import { STATUS_META } from '../components/ui/StatusBadge'
 import { useToast } from '../context/ToastContext'
 import { useAcademicConfig } from '../hooks/useAcademics'
 import { useAchievements, useUsers } from '../hooks/useData'
@@ -15,17 +14,19 @@ import { exportAnalyticsSummary, exportFilteredAchievements, getAdminRecords } f
 import {
   filterByTimeRange,
   formatRate,
-  getAchievementStatusDistribution,
   getAchievementTrends,
   getAdminOverview,
+  getAwardRate,
+  getBatchAchievementStats,
   getCategoryAchievementStats,
   getDepartmentAchievementStats,
-  getVerificationRate,
+  getResultDistribution,
   METRIC_DEFINITIONS,
   rangeStart,
   submissionSpan,
   TIME_RANGE_OPTIONS,
 } from '../services/analyticsService'
+import { RESULT_GROUPS } from '../domain/result'
 import type { TimeRange } from '../services/analyticsService'
 import { useStore } from '../services/store'
 
@@ -44,8 +45,9 @@ export default function AnalyticsPage() {
   const now = useMemo(() => new Date(), [range]) // eslint-disable-line react-hooks/exhaustive-deps
   const records = useMemo(() => filterByTimeRange(all, range, now), [all, range, now])
   const overview = useMemo(() => getAdminOverview(users, records), [users, records])
-  const rate = useMemo(() => getVerificationRate(records), [records])
-  const statuses = useMemo(() => getAchievementStatusDistribution(records), [records])
+  const rate = useMemo(() => getAwardRate(records), [records])
+  const results = useMemo(() => getResultDistribution(records), [records])
+  const batches = useMemo(() => getBatchAchievementStats(records, users, now).filter((b) => b.counts.total > 0), [records, users, now])
   const departments = useMemo(() => getDepartmentAchievementStats(records, users, config.departments), [records, users, config])
   const categories = useMemo(() => getCategoryAchievementStats(records), [records])
   const trend = useMemo(() => getAchievementTrends(all, range, now), [all, range, now])
@@ -132,27 +134,29 @@ export default function AnalyticsPage() {
         <StatLedger
           caption="Achievement overview for the selected range"
           items={[
-            { label: 'Total submitted', value: overview.totalRecords, icon: Files },
-            { label: 'Verified', value: overview.verified, icon: BadgeCheck, tone: 'navy' },
-            { label: 'Pending review', value: overview.pendingVerification, icon: Inbox, tone: 'lavender', note: `${overview.submitted} submitted · ${overview.underReview} under review` },
-            { label: 'Needs Attention', value: overview.needsAttention, icon: CircleAlert, tone: 'terracotta' },
-            { label: 'Verification rate', value: formatRate(rate), icon: Percent, tone: 'navy', note: 'verified ÷ total submitted' },
-            { label: 'Students represented', value: studentsWithRecords, icon: Users, note: 'with at least one record' },
+            { label: 'Total records', value: overview.totalRecords, icon: Files, note: `${overview.recent} in the last 30 days` },
+            { label: 'Winners', value: overview.winner, icon: Award, tone: 'navy' },
+            { label: 'Runners-up', value: overview.runner_up, icon: Medal, tone: 'lavender' },
+            { label: 'Participants', value: overview.participant, icon: Users, note: `${overview.other} other / unclassified` },
+            { label: 'Awarded share', value: formatRate(rate), icon: Percent, tone: 'navy', note: 'records with a result above Participant' },
+            { label: 'Students represented', value: studentsWithRecords, icon: UsersRound, note: 'with at least one record' },
           ]}
         />
         <p className="mt-2 text-[12.5px] text-ink-muted">
-          <span className="font-medium text-ink-soft">Verification rate:</span> {METRIC_DEFINITIONS.verificationRate} Verified + pending + needs attention = total. {drafts.length} unfinished {drafts.length === 1 ? 'draft is' : 'drafts are'} excluded.
+          <span className="font-medium text-ink-soft">Winners:</span> {METRIC_DEFINITIONS.winners} Winners + runners-up + participants + other = total, because each
+          record counts once by the result its student recorded. {drafts.length} unfinished {drafts.length === 1 ? 'draft is' : 'drafts are'} excluded
+          {overview.archived > 0 ? `, along with ${overview.archived} archived ${overview.archived === 1 ? 'record' : 'records'}` : ''}.
         </p>
       </section>
 
       <div className="grid gap-5 lg:grid-cols-2">
         <ChartFrame
-          title="Verification status"
-          calculation="Share of the records in range by current status."
-          table={{ headers: ['Status', 'Records'], rows: statuses.map((s) => [STATUS_META[s.status].label, s.count]) }}
+          title="Achievement results"
+          calculation="Share of the records in range by the result the student recorded."
+          table={{ headers: ['Result', 'Records'], rows: results.map((r) => [RESULT_GROUPS[r.group].label, r.count]) }}
           emptyMessage={emptyMessage}
         >
-          <StatusSplit data={statuses} />
+          <ResultSplit data={results} />
         </ChartFrame>
 
         {/* D. Time */}
@@ -170,14 +174,14 @@ export default function AnalyticsPage() {
       <section aria-labelledby="dept-heading">
         <h2 id="dept-heading" className="font-serif text-[16px] text-navy-900">Departments</h2>
         <p className="mt-1 mb-4 text-sm text-ink-muted">
-          A record counts toward the department of the student who submitted it. “Students with achievements” counts each student once, however many records they have.
+          A record counts toward the department of the student who submitted it. “Students with achievements” counts each student once, however many records they have. Winners, runners-up and participants are the results students recorded.
         </p>
         <div className="paper relative overflow-x-auto">
             <table className="w-full border-collapse text-left text-sm">
               <caption className="sr-only">Department-wise achievement figures for the selected range</caption>
               <thead>
                 <tr className="border-b border-line bg-parchment/60">
-                  {['Department', 'Total', 'Verified', 'Pending', 'Needs attention', 'Students with achievements', 'Verification rate'].map((h, i) => (
+                  {['Department', 'Total', 'Winners', 'Runners-up', 'Participants', 'Students with achievements', 'Records per student'].map((h, i) => (
                     <th key={h} scope="col" className={`label-archival px-3 py-2.5 font-medium ${i > 0 ? 'text-right' : ''} ${i === 4 || i === 6 ? 'hidden md:table-cell' : ''}`}>
                       {h}
                     </th>
@@ -192,14 +196,14 @@ export default function AnalyticsPage() {
                       <span className="block text-[12px] text-ink-muted">{d.name}</span>
                     </th>
                     <td className="px-3 py-2.5 text-right text-navy-900 tabular-nums">{d.total}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{d.verified}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{d.pending}</td>
-                    <td className="hidden px-3 py-2.5 text-right tabular-nums md:table-cell">{d.needsAttention}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{d.counts.winner}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{d.counts.runner_up}</td>
+                    <td className="hidden px-3 py-2.5 text-right tabular-nums md:table-cell">{d.counts.participant}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums">
                       {d.studentsWithAchievements}
                       <span className="text-ink-muted"> of {d.students}</span>
                     </td>
-                    <td className="hidden px-3 py-2.5 text-right tabular-nums md:table-cell">{formatRate(d.rate)}</td>
+                    <td className="hidden px-3 py-2.5 text-right tabular-nums md:table-cell">{d.perStudent ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -207,16 +211,61 @@ export default function AnalyticsPage() {
                 <tr className="border-t border-line-strong bg-parchment/40 font-medium">
                   <th scope="row" className="px-3 py-2.5 text-left">All departments</th>
                   <td className="px-3 py-2.5 text-right tabular-nums">{departments.reduce((n, d) => n + d.total, 0)}</td>
-                  <td className="px-3 py-2.5 text-right tabular-nums">{departments.reduce((n, d) => n + d.verified, 0)}</td>
-                  <td className="px-3 py-2.5 text-right tabular-nums">{departments.reduce((n, d) => n + d.pending, 0)}</td>
-                  <td className="hidden px-3 py-2.5 text-right tabular-nums md:table-cell">{departments.reduce((n, d) => n + d.needsAttention, 0)}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{departments.reduce((n, d) => n + d.counts.winner, 0)}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{departments.reduce((n, d) => n + d.counts.runner_up, 0)}</td>
+                  <td className="hidden px-3 py-2.5 text-right tabular-nums md:table-cell">{departments.reduce((n, d) => n + d.counts.participant, 0)}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums">{departments.reduce((n, d) => n + d.studentsWithAchievements, 0)}</td>
-                  <td className="hidden px-3 py-2.5 text-right tabular-nums md:table-cell">{formatRate(rate)}</td>
+                  <td className="hidden px-3 py-2.5 text-right tabular-nums md:table-cell">
+                    {studentsWithRecords ? Math.round((records.length / studentsWithRecords) * 10) / 10 : '—'}
+                  </td>
                 </tr>
               </tfoot>
             </table>
         </div>
       </section>
+
+      {/* B2. Batches */}
+      {batches.length > 0 && (
+        <section aria-labelledby="batch-heading">
+          <h2 id="batch-heading" className="font-serif text-[16px] text-navy-900">
+            Batches
+          </h2>
+          <p className="mt-1 mb-4 text-sm text-ink-muted">
+            A batch is the admission cohort, taken from each student’s register number. A record counts toward the batch of the student who submitted it.
+          </p>
+          <div className="paper relative overflow-x-auto">
+            <table className="w-full border-collapse text-left text-sm">
+              <caption className="sr-only">Batch-wise achievement figures for the selected range</caption>
+              <thead>
+                <tr className="border-b border-line bg-parchment/60">
+                  {['Batch', 'Records', 'Winners', 'Runners-up', 'Participants', 'Other'].map((h, i) => (
+                    <th key={h} scope="col" className={`label-archival px-3 py-2.5 font-medium ${i > 0 ? 'text-right' : ''}`}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {batches.map((b) => (
+                  <tr key={b.code} className="border-b border-line/70 last:border-0">
+                    <th scope="row" className="px-3 py-2.5 font-normal">
+                      {b.label}
+                      <span className="block text-[12px] text-ink-muted">
+                        {b.students} {b.students === 1 ? 'student' : 'students'}
+                      </span>
+                    </th>
+                    <td className="px-3 py-2.5 text-right text-navy-900 tabular-nums">{b.counts.total}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{b.counts.winner}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{b.counts.runner_up}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{b.counts.participant}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{b.counts.other}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {/* C. Categories */}
       <section aria-labelledby="cat-heading">
@@ -224,16 +273,16 @@ export default function AnalyticsPage() {
         <div className="grid gap-5 lg:grid-cols-2">
         <ChartFrame
           title="Records by department"
-          calculation="Total records per department; the inner bar is the verified share."
-          table={{ headers: ['Department', 'Verified', 'Records'], rows: departments.map((d) => [d.code, d.verified, d.total]) }}
+          calculation="Total records per department; the inner bar is the winners’ share."
+          table={{ headers: ['Department', 'Winners', 'Records'], rows: departments.map((d) => [d.code, d.counts.winner, d.total]) }}
           emptyMessage={emptyMessage}
         >
-          <DepartmentBars data={departments} />
+          <DepartmentBars data={departments.map((d) => ({ code: d.code, total: d.total, winners: d.counts.winner }))} />
         </ChartFrame>
         <ChartFrame
           title="Records by achievement category"
-          calculation="Count of records in range per category, any status. All nine categories are listed, including those with none."
-          table={{ headers: ['Category', 'Records', 'Verified'], rows: categories.map((c) => [c.category, c.count, c.verified]) }}
+          calculation="Count of records in range per category. All nine categories are listed, including those with none."
+          table={{ headers: ['Category', 'Records', 'Winners'], rows: categories.map((c) => [c.category, c.count, c.winners]) }}
           emptyMessage={emptyMessage}
         >
           <BarList data={categories.map((c) => ({ label: c.category, value: c.count }))} />

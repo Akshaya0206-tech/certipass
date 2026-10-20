@@ -59,7 +59,7 @@ export const isKnownSection = (name: string, config = getAcademicConfig()) => co
 export const isActiveSection = (name: string, config = getAcademicConfig()) => config.sections.some((s) => s.name === name && s.active)
 
 export interface ConfigUsage {
-  departments: Record<string, { students: number; faculty: number; reviewers: number }>
+  departments: Record<string, { students: number; faculty: number; covering: number }>
   sections: Record<string, number>
   categories: Record<string, number>
 }
@@ -67,14 +67,15 @@ export interface ConfigUsage {
 /** How many records reference each configuration item. */
 export function getConfigUsage(users: User[] = getState().users, achievements: Achievement[] = getState().achievements): ConfigUsage {
   const usage: ConfigUsage = { departments: {}, sections: {}, categories: {} }
-  const dept = (code: string) => (usage.departments[code] ??= { students: 0, faculty: 0, reviewers: 0 })
+  const dept = (code: string) => (usage.departments[code] ??= { students: 0, faculty: 0, covering: 0 })
   for (const u of users) {
     if (u.role === 'student') {
       dept(u.department).students++
       usage.sections[u.section] = (usage.sections[u.section] ?? 0) + 1
     } else if (u.role === 'faculty') {
       dept(u.department).faculty++
-      for (const code of u.reviewDepartments ?? []) dept(code).reviewers++
+      // Faculty who cover this department without belonging to it.
+      for (const code of u.reviewDepartments ?? []) dept(code).covering++
     }
   }
   for (const a of achievements) usage.categories[a.category] = (usage.categories[a.category] ?? 0) + 1
@@ -83,7 +84,7 @@ export function getConfigUsage(users: User[] = getState().users, achievements: A
 
 export function departmentInUse(code: string, usage = getConfigUsage()) {
   const u = usage.departments[code]
-  return !!u && u.students + u.faculty + u.reviewers > 0
+  return !!u && u.students + u.faculty + u.covering > 0
 }
 
 // ── Changing ─────────────────────────────────────────────────────────────────

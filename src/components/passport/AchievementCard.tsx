@@ -3,7 +3,7 @@ import { ArrowRight, Paperclip } from 'lucide-react'
 import { formatDate } from '../../lib/format'
 import type { Achievement } from '../../types'
 import { CATEGORY_ICON } from '../AchievementList'
-import { StatusBadge } from '../ui/StatusBadge'
+import { ResultBadge, StatusBadge } from '../ui/StatusBadge'
 
 /** Restrained library card: an archival index card rather than a promo tile. */
 export function AchievementCard({ achievement: a, href }: { achievement: Achievement; href: string }) {
@@ -15,7 +15,10 @@ export function AchievementCard({ achievement: a, href }: { achievement: Achieve
           <Icon className="size-3.5 text-navy-700" strokeWidth={1.7} aria-hidden />
           {a.category}
         </span>
-        <StatusBadge status={a.status} />
+        <span className="flex items-center gap-1.5">
+          {a.status === 'archived' && <StatusBadge status={a.status} />}
+          <ResultBadge type={a.achievementType} />
+        </span>
       </div>
       <div className="flex flex-1 flex-col px-4 pt-3 pb-4">
         <h3 id={`card-${a.id}`} className="font-serif text-[15px] leading-snug text-navy-900">

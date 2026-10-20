@@ -211,13 +211,13 @@ export function ResultStep({ form, set, error }: StepProps) {
 export function AdditionalStep({ form, set, error }: StepProps) {
   return (
     <div className="space-y-5">
-      <Field label="Additional notes" optional error={error('details')} hint="Team members, project title, skills used — anything a reviewer might find useful.">
+      <Field label="Additional notes" optional error={error('details')} hint="Team members, project title, skills used — anything worth keeping on the record.">
         <TextArea value={form.details} onChange={(e) => set('details', e.target.value)} maxLength={LIMITS.notes} rows={3} />
       </Field>
       <Field label="Prize details" optional error={error('prizeDetails')} hint="Cash prize, medal, trophy or scholarship, if any.">
         <TextArea value={form.prizeDetails} onChange={(e) => set('prizeDetails', e.target.value)} maxLength={LIMITS.notes} rows={2} />
       </Field>
-      <Field label="About your certificate" optional error={error('evidenceNote')} hint="Anything the reviewer should know about the file — e.g. “the award is on page 2”.">
+      <Field label="About your certificate" optional error={error('evidenceNote')} hint="Anything worth noting about the file — e.g. “the award is on page 2”.">
         <TextArea value={form.evidenceNote} onChange={(e) => set('evidenceNote', e.target.value)} maxLength={LIMITS.notes} rows={2} />
       </Field>
     </div>

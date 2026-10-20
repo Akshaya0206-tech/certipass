@@ -24,7 +24,7 @@ export default function AdminActivityPage() {
       <PageHeader
         kicker={`Administration · ${all.length} recorded events`}
         title="Activity"
-        description="What has happened across CertiPass, newest first: submissions, reviews, corrections, verifications, new accounts and admin actions. Built only from what is recorded on the records, accounts and audit trail."
+        description="What has happened across CertiPass, newest first: submissions, record updates, archiving, new accounts and admin actions. Built only from what is recorded on the records, accounts and audit trail."
       />
       <div className="flex flex-wrap items-center gap-3">
         <FilterSelect<AdminActivityType | 'all'>

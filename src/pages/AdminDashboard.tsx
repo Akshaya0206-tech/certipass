@@ -1,26 +1,26 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, BadgeCheck, CircleAlert, Files, GraduationCap, Inbox, UserCog } from 'lucide-react'
+import { ArrowRight, Award, Files, GraduationCap, Medal, UserCog, Users } from 'lucide-react'
 import { ActivityList } from '../components/admin/ActivityList'
-import { BarList, ChartFrame, ColumnChart, DepartmentBars, StatusSplit } from '../components/charts/Charts'
+import { BarList, ChartFrame, ColumnChart, DepartmentBars, ResultSplit } from '../components/charts/Charts'
 import { SectionHeading } from '../components/ui/PageHeader'
 import { StatLedger } from '../components/ui/StatLedger'
 import { EmptyState } from '../components/ui/States'
-import { STATUS_META } from '../components/ui/StatusBadge'
 import { INSTITUTION_NAME } from '../data/mockData'
 import { useAcademicConfig } from '../hooks/useAcademics'
 import { useAchievements, useRequiredUser, useUsers } from '../hooks/useData'
 import { getAdminActivity } from '../services/adminService'
 import {
   formatRate,
-  getAchievementStatusDistribution,
   getAchievementTrends,
   getAdminOverview,
+  getAwardRate,
   getCategoryAchievementStats,
   getDepartmentAchievementStats,
-  getVerificationRate,
+  getResultDistribution,
   METRIC_DEFINITIONS,
 } from '../services/analyticsService'
+import { RESULT_GROUPS } from '../domain/result'
 import { useStore } from '../services/store'
 
 export default function AdminDashboard() {
@@ -33,7 +33,7 @@ export default function AdminDashboard() {
 
   // Every figure and chart on this page comes from the same records, through the analytics service.
   const overview = useMemo(() => getAdminOverview(users, achievements, drafts), [users, achievements, drafts])
-  const statuses = useMemo(() => getAchievementStatusDistribution(achievements), [achievements])
+  const results = useMemo(() => getResultDistribution(achievements), [achievements])
   const categories = useMemo(() => getCategoryAchievementStats(achievements).filter((c) => c.count > 0).sort((a, b) => b.count - a.count), [achievements])
   const departments = useMemo(() => getDepartmentAchievementStats(achievements, users, config.departments), [achievements, users, config])
   const trend = useMemo(() => getAchievementTrends(achievements, 'academic_year'), [achievements])
@@ -60,10 +60,10 @@ export default function AdminDashboard() {
           items={[
             { label: 'Total Students', value: overview.totalStudents, icon: GraduationCap, note: `${overview.activeStudents} active` },
             { label: 'Total Faculty', value: overview.totalFaculty, icon: UserCog, note: `${overview.activeFaculty} active` },
-            { label: 'Achievement Records', value: overview.totalRecords, icon: Files, note: 'submitted, any status' },
-            { label: 'Pending Verification', value: overview.pendingVerification, icon: Inbox, tone: 'lavender', note: `${overview.submitted} submitted · ${overview.underReview} under review` },
-            { label: 'Verified', value: overview.verified, icon: BadgeCheck, tone: 'navy', note: `${formatRate(getVerificationRate(achievements))} of records` },
-            { label: 'Needs Attention', value: overview.needsAttention, icon: CircleAlert, tone: 'terracotta', note: 'waiting on students' },
+            { label: 'Achievement Records', value: overview.totalRecords, icon: Files, note: `${overview.recent} in the last 30 days` },
+            { label: 'Winners', value: overview.winner, icon: Award, tone: 'navy', note: `${formatRate(getAwardRate(achievements))} of records awarded` },
+            { label: 'Runners-up', value: overview.runner_up, icon: Medal, tone: 'lavender' },
+            { label: 'Participants', value: overview.participant, icon: Users, tone: 'terracotta', note: `${overview.other} other / unclassified` },
           ]}
         />
         <details className="mt-2 text-[12.5px] text-ink-muted">
@@ -74,9 +74,11 @@ export default function AdminDashboard() {
                 ['Total Students', METRIC_DEFINITIONS.totalStudents],
                 ['Total Faculty', METRIC_DEFINITIONS.totalFaculty],
                 ['Achievement Records', METRIC_DEFINITIONS.totalRecords],
-                ['Pending Verification', METRIC_DEFINITIONS.pendingVerification],
-                ['Verified', METRIC_DEFINITIONS.verified],
-                ['Needs Attention', METRIC_DEFINITIONS.needsAttention],
+                ['Winners', METRIC_DEFINITIONS.winners],
+                ['Runners-up', METRIC_DEFINITIONS.runnersUp],
+                ['Participants', METRIC_DEFINITIONS.participants],
+                ['Other / unclassified', METRIC_DEFINITIONS.other],
+                ['Archived', METRIC_DEFINITIONS.archived],
               ] as const
             ).map(([k, v]) => (
               <div key={k}>
@@ -86,7 +88,9 @@ export default function AdminDashboard() {
             ))}
           </dl>
           <p className="mt-2">
-            Pending + Verified + Needs Attention = Achievement Records. {overview.draftsInProgress} unfinished {overview.draftsInProgress === 1 ? 'draft is' : 'drafts are'} not counted anywhere on this page.
+            Winners + Runners-up + Participants + Other = Achievement Records; every record counts once, by the result its student recorded.{' '}
+            {overview.draftsInProgress} unfinished {overview.draftsInProgress === 1 ? 'draft is' : 'drafts are'} not counted anywhere on this page
+            {overview.archived > 0 ? `, and ${overview.archived} archived ${overview.archived === 1 ? 'record is' : 'records are'} excluded` : ''}.
           </p>
         </details>
       </div>
@@ -103,12 +107,12 @@ export default function AdminDashboard() {
         />
         <div className="grid gap-5 lg:grid-cols-2">
           <ChartFrame
-            title="Status distribution"
-            calculation="Share of all submitted records by current status."
-            table={{ headers: ['Status', 'Records'], rows: statuses.map((s) => [STATUS_META[s.status].label, s.count]) }}
+            title="Achievement results"
+            calculation="Share of all records by the result the student recorded. Not a review state — there is no approval step."
+            table={{ headers: ['Result', 'Records'], rows: results.map((r) => [RESULT_GROUPS[r.group].label, r.count]) }}
             emptyMessage={noRecords ? 'No achievement records yet.' : undefined}
           >
-            <StatusSplit data={statuses} />
+            <ResultSplit data={results} />
           </ChartFrame>
           <ChartFrame
             title="Submissions this academic year"
@@ -120,7 +124,7 @@ export default function AdminDashboard() {
           </ChartFrame>
           <ChartFrame
             title="Achievement categories"
-            calculation="Records per category, any status. Categories with no records are omitted from the chart."
+            calculation="Records per category. Categories with no records are omitted from the chart."
             table={{ headers: ['Category', 'Records'], rows: getCategoryAchievementStats(achievements).map((c) => [c.category, c.count]) }}
             emptyMessage={noRecords ? 'No achievement records yet.' : undefined}
           >
@@ -128,11 +132,11 @@ export default function AdminDashboard() {
           </ChartFrame>
           <ChartFrame
             title="Departments"
-            calculation="Records counted under the submitting student’s department; the inner bar is the verified share."
-            table={{ headers: ['Department', 'Verified', 'Records'], rows: departments.map((d) => [d.code, d.verified, d.total]) }}
+            calculation="Records counted under the submitting student’s department; the inner bar is the winners’ share."
+            table={{ headers: ['Department', 'Winners', 'Records'], rows: departments.map((d) => [d.code, d.counts.winner, d.total]) }}
             emptyMessage={noRecords ? 'No achievement records yet.' : undefined}
           >
-            <DepartmentBars data={departments} />
+            <DepartmentBars data={departments.map((d) => ({ code: d.code, total: d.total, winners: d.counts.winner }))} />
           </ChartFrame>
         </div>
       </section>
@@ -147,7 +151,7 @@ export default function AdminDashboard() {
             </Link>
           }
         />
-        <div className="paper p-5 sm:p-6">{activity.length ? <ActivityList items={activity} /> : <EmptyState title="No activity yet" body="Submissions, reviews and account changes will be listed here as they happen." className="py-6" />}</div>
+        <div className="paper p-5 sm:p-6">{activity.length ? <ActivityList items={activity} /> : <EmptyState title="No activity yet" body="Submissions, record updates and account changes will be listed here as they happen." className="py-6" />}</div>
       </section>
     </div>
   )

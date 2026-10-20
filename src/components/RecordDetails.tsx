@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react'
 import { ArrowRight } from 'lucide-react'
-import { statusLabel } from '../domain/status'
+import { recordStatusLabel } from '../domain/status'
 import { cn } from '../lib/cn'
 import { formatDate, formatDateTime } from '../lib/format'
-import type { Achievement, StatusEvent } from '../types'
+import type { Achievement, RecordEvent } from '../types'
 import { STATUS_META } from './ui/StatusBadge'
 
 export function DetailList({ rows, className }: { rows: [string, ReactNode][]; className?: string }) {
@@ -20,26 +20,25 @@ export function DetailList({ rows, className }: { rows: [string, ReactNode][]; c
 }
 
 /** The status before an event: recorded on newer entries, otherwise the previous entry's status. */
-export function previousStatus(history: StatusEvent[], index: number) {
+export function previousStatus(history: RecordEvent[], index: number) {
   return history[index].fromStatus ?? (index > 0 ? history[index - 1].status : undefined)
 }
 
 /** What happened, in words. */
-export function historyActionLabel(history: StatusEvent[], index: number) {
+export function historyActionLabel(history: RecordEvent[], index: number) {
   const h = history[index]
-  if (h.kind === 'submitted') return 'Submitted'
-  if (h.kind === 'resubmitted') return 'Edited and resubmitted'
-  if (h.status === 'under_review') return previousStatus(history, index) === 'verified' ? 'Review reopened' : 'Review started'
-  if (h.status === 'needs_attention') return 'Clarification requested'
-  if (h.status === 'verified') return 'Verified'
-  return 'Returned to the review queue'
+  if (h.kind === 'updated') return 'Details updated by the student'
+  if (h.kind === 'archived') return 'Archived by the records office'
+  if (h.kind === 'restored') return 'Restored by the records office'
+  return 'Submitted'
 }
 
-function actorRole(h: StatusEvent) {
-  return h.actorRole ?? (h.kind === 'submitted' || h.kind === 'resubmitted' ? 'student' : 'faculty')
+function actorRole(h: RecordEvent) {
+  if (h.actorRole) return h.actorRole
+  return h.kind === 'archived' || h.kind === 'restored' ? 'admin' : 'student'
 }
 
-/** Compact status trail for students, newest first. */
+/** Compact history trail for students, newest first. */
 export function StatusHistory({ history }: { history: Achievement['history'] }) {
   return (
     <ol className="space-y-3 border-l border-line-strong pl-4">
@@ -60,12 +59,12 @@ export function StatusHistory({ history }: { history: Achievement['history'] }) 
 }
 
 /**
- * Full review history in chronological order: the action, the status change
- * (previous → new), who acted and in what role, when, and any reason given.
+ * The record's full history in chronological order: what happened, who did
+ * it and in what role, when, and any note recorded with it.
  */
-export function ReviewHistory({ history }: { history: Achievement['history'] }) {
+export function RecordHistory({ history }: { history: Achievement['history'] }) {
   return (
-    <ol className="space-y-4 border-l border-line-strong pl-4" aria-label="Review history, oldest first">
+    <ol className="space-y-4 border-l border-line-strong pl-4" aria-label="Record history, oldest first">
       {history.map((h, i) => {
         const from = previousStatus(history, i)
         return (
@@ -75,13 +74,13 @@ export function ReviewHistory({ history }: { history: Achievement['history'] }) 
             <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-ink-soft">
               {from ? (
                 <>
-                  <span>{statusLabel(from)}</span>
+                  <span>{recordStatusLabel(from)}</span>
                   <ArrowRight className="size-3 text-ink-muted" aria-label="to" />
                 </>
               ) : (
                 <span className="text-ink-muted">New record ·</span>
               )}
-              <span className="font-medium">{statusLabel(h.status)}</span>
+              <span className="font-medium">{recordStatusLabel(h.status)}</span>
             </p>
             <p className="mt-0.5 text-ink-muted">
               {h.byName} <span className="label-archival text-[9.5px]">{actorRole(h)}</span> · <time dateTime={h.at}>{formatDateTime(h.at)}</time>

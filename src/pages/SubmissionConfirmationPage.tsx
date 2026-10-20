@@ -31,7 +31,7 @@ function Confirmation() {
   if (!a) return <AchievementNotFound />
 
   const last = a.history.at(-1)
-  const resubmitted = last?.kind === 'resubmitted'
+  const resubmitted = last?.kind === 'updated'
   const when = resubmitted ? (last?.at ?? a.updatedAt) : a.submittedAt
 
   return (
@@ -46,8 +46,8 @@ function Confirmation() {
         <h1 className="display mt-3 text-[23px] leading-tight md:text-[27px]">{resubmitted ? 'Sent back for review.' : 'Filed in your passport.'}</h1>
         <p className="mx-auto mt-3 max-w-lg text-ink-soft">
           {resubmitted
-            ? 'Your corrections were saved and the achievement is back in the faculty review queue.'
-            : 'Your certificate has been submitted and is waiting for a faculty reviewer.'}{' '}
+            ? 'Your changes were saved to the record.'
+            : 'Your certificate has been added to your passport and is available to your department’s faculty.'}{' '}
           You’ll get a notification when its status changes.
         </p>
       </div>
@@ -71,7 +71,9 @@ function Confirmation() {
           <dd className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
             <StatusBadge status={a.status} />
             <span className="text-[13px] text-ink-muted">
-              {a.status === 'submitted' ? 'Not yet verified — a faculty reviewer needs to check it first.' : 'This record has moved on since it was submitted.'}
+              {a.status === 'submitted'
+                ? 'On record and visible to your department’s faculty. Nothing else is needed from you.'
+                : 'This record has been archived by the Office of Academic Records.'}
             </span>
           </dd>
         </div>
