@@ -1,0 +1,146 @@
+@import 'tailwindcss';
+
+/*
+ * REC OD Pass Portal design tokens.
+ * Purple carries navigation, headings and brand; gold is reserved for primary
+ * actions, active indicators and key emphasis. Status colours are separate
+ * (amber, purple + gold, muted red) and always paired with an icon and a label.
+ */
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
+  --font-serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+
+  /* Brand */
+  --color-purple: #512080;
+  --color-purple-dark: #30104f;
+  --color-purple-700: #3f1966;
+  --color-purple-600: #512080;
+  --color-purple-500: #6b3a9a;
+  --color-purple-300: #b79ad1;
+  --color-purple-200: #d9c8e8;
+  --color-purple-100: #ebe0f4;
+  --color-gold: #f4c542;
+  --color-gold-dark: #d9a928;
+  --color-gold-100: #fbecbd;
+  --color-gold-50: #fef8e3;
+
+  /* Surfaces and text */
+  --color-lavender: #f6f1fb;
+  --color-lavender-deep: #ece3f5;
+  --color-line: #e4dcec;
+  --color-line-strong: #cfc3dc;
+  --color-ink: #241a2d;
+  --color-ink-soft: #4a3f55;
+  --color-ink-muted: #71677b;
+
+  /* Status */
+  --color-amber-bg: #fff3d6;
+  --color-amber-fg: #7a4e00;
+  --color-amber-line: #f0cf84;
+  --color-red-bg: #f9e7e7;
+  --color-red-fg: #8f2b2b;
+  --color-red-line: #e3bcbc;
+  --color-ok-bg: #fef8e3;
+
+  --shadow-paper: 0 1px 2px rgb(36 26 45 / 0.05);
+  --shadow-pop: 0 10px 28px -10px rgb(36 26 45 / 0.28);
+
+  --animate-fade-in: fade-in 160ms ease-out;
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-lavender font-sans text-ink;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-gold-dark);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  button:not(:disabled),
+  [role='button']:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+  ::selection {
+    background: var(--color-gold-100);
+    color: var(--color-purple-dark);
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-md border border-line bg-white shadow-paper;
+  }
+  .kicker {
+    @apply text-[11px] font-semibold tracking-[0.06em] text-ink-muted uppercase;
+  }
+  .page-title {
+    @apply text-xl font-semibold tracking-tight text-purple-dark sm:text-2xl;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Print: only the OD pass sheet is printed, on a white A4 page.        */
+/* ------------------------------------------------------------------ */
+@page {
+  size: A4;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 12pt;
+  }
+  .no-print {
+    display: none !important;
+  }
+  #root {
+    display: block;
+  }
+  .print-root {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    display: block !important;
+    min-height: 0 !important;
+  }
+  .pass-sheet {
+    box-shadow: none !important;
+    margin: 0 !important;
+    width: 210mm !important;
+    max-width: none !important;
+    /* One A4 page with a little slack. Taller content flows to a second page instead of being clipped. */
+    min-height: 295mm !important;
+    border: 0 !important;
+    padding: 9mm 10mm !important;
+  }
+  .pass-sheet * {
+    color: #000 !important;
+  }
+  .pass-sheet .pass-purple {
+    color: #30104f !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
