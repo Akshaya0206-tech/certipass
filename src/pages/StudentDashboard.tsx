@@ -57,7 +57,7 @@ function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Passport holder */}
-      <header className="paper grid gap-5 p-5 lg:grid-cols-[1fr_auto] lg:items-center">
+      <header className="paper grid gap-5 border-l-4 border-l-gold p-5 lg:grid-cols-[1fr_auto] lg:items-center">
         <div className="flex items-center gap-4">
           <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-lavender-200 text-[16px] font-semibold text-lavender-700" aria-hidden>
             {initials(student.fullName)}

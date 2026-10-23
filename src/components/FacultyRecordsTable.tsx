@@ -280,7 +280,7 @@ export function FacultyRecordsTable({
             body="Adjust the search or filters to see more."
             action={
               active ? (
-                <button type="button" onClick={reset} className="text-sm font-medium text-terracotta-600 hover:underline">
+                <button type="button" onClick={reset} className="text-sm font-medium text-navy-800 hover:underline">
                   Clear filters
                 </button>
               ) : undefined

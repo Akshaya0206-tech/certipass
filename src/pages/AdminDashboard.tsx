@@ -43,7 +43,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <header className="paper flex flex-col gap-3 p-5 md:flex-row md:items-center md:justify-between">
+      <header className="paper flex flex-col gap-3 border-l-4 border-l-gold p-5 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="label-archival">Records administration</p>
           <h1 className="display mt-1.5 text-[20px] leading-tight md:text-[22px]">Overview</h1>

@@ -45,7 +45,7 @@ export default function NotificationsPage() {
             role="tab"
             aria-selected={filter === f}
             onClick={() => setFilter(f)}
-            className={cn('-mb-px border-b-2 pb-2.5 text-sm capitalize', filter === f ? 'border-terracotta-500 font-medium text-navy-900' : 'border-transparent text-ink-muted hover:text-navy-900')}
+            className={cn('-mb-px border-b-2 pb-2.5 text-sm capitalize', filter === f ? 'border-gold-dark font-medium text-navy-900' : 'border-transparent text-ink-muted hover:text-navy-900')}
           >
             {f}
             {f === 'unread' && unread > 0 && <span className="ml-1.5 rounded-full bg-lavender-200 px-1.5 text-[11px] text-navy-900">{unread}</span>}
@@ -76,8 +76,8 @@ export default function NotificationsPage() {
                   <p className="flex flex-wrap items-center gap-x-2">
                     <span className={cn('text-[14.5px]', n.read ? 'text-ink-soft' : 'font-medium text-navy-900')}>{n.title}</span>
                     {!n.read && (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-terracotta-600">
-                        <span className="size-1.5 rounded-full bg-terracotta-500" aria-hidden />
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-butter-700">
+                        <span className="size-1.5 rounded-full bg-gold-dark" aria-hidden />
                         Unread
                       </span>
                     )}

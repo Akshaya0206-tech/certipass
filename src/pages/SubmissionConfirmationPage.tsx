@@ -37,7 +37,7 @@ function Confirmation() {
   return (
     <div className="mx-auto max-w-2xl py-6 sm:py-10">
       <div className="text-center">
-        <div className="mx-auto flex size-24 rotate-[-10deg] flex-col items-center justify-center rounded-full border-2 border-terracotta-500 text-terracotta-600" aria-hidden>
+        <div className="mx-auto flex size-24 rotate-[-10deg] flex-col items-center justify-center rounded-full border-2 border-gold-dark text-navy-800" aria-hidden>
           <span className="font-mono text-[9px] tracking-[0.2em] uppercase">Received</span>
           <Stamp className="my-0.5 size-6" strokeWidth={1.5} />
           <span className="font-mono text-[9px]">{a.reference.slice(3)}</span>

@@ -1,73 +1,80 @@
 @import 'tailwindcss';
 
 /*
- * CertiPass design tokens — a calm pastel workspace.
- * Powder-blue outer background, light grey content area, white panels with
- * thin borders, and four pastels (lavender, pale blue, pale yellow, blush)
- * for highlights and status.
+ * CertiPass design tokens, in Rajalakshmi Engineering College colours.
+ * Purple carries navigation, headings and primary actions; gold is kept for
+ * key actions, active indicators and highlights; a pale lavender page holds
+ * white panels with thin borders.
  *
- * The neutral, navy, lavender and "terracotta" scales keep their names from
- * the earlier design so every component picks up the new palette; the
- * terracotta scale now holds the blush / rose tones used for attention.
+ * The scale names (navy, lavender, sky, butter, terracotta) are unchanged from
+ * the earlier design so every component picks up the REC palette:
+ *   navy       -> REC purple (800 = #512080 primary, 900 = #30104F dark purple)
+ *   lavender   -> light purple tints for selected states and chart bars
+ *   sky        -> pale lavender surfaces and chips
+ *   butter     -> REC gold tints
+ *   terracotta -> muted red, used only for errors and attention
  */
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
   --font-serif: 'Inter', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
+  --font-display: 'Source Serif 4', Georgia, 'Times New Roman', serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
 
   /* Surfaces */
-  --color-sky: #dceff7;
-  --color-sky-50: #eef7fb;
-  --color-sky-200: #c8e5f2;
-  --color-sky-500: #6fb0cc;
-  --color-sky-700: #2c6682;
-  --color-ivory: #f7f8fa;
-  --color-parchment: #f1f3f6;
-  --color-parchment-deep: #e6e9ed;
-  --color-line: #e6e9ed;
-  --color-line-strong: #d3d8df;
+  --color-sky: #f6f1fb;
+  --color-sky-50: #faf7fd;
+  --color-sky-200: #e8dcf3;
+  --color-sky-500: #8a5fb5;
+  --color-sky-700: #512080;
+  --color-ivory: #faf7fd;
+  --color-parchment: #f3ecf9;
+  --color-parchment-deep: #e8dcf3;
+  --color-line: #e4dcec;
+  --color-line-strong: #cfc3dc;
 
   /* Text */
-  --color-ink: #20242b;
-  --color-ink-soft: #4b525d;
-  --color-ink-muted: #707782;
+  --color-ink: #241a2d;
+  --color-ink-soft: #4a3f55;
+  --color-ink-muted: #71677b;
 
-  /* Slate (primary) */
-  --color-navy-950: #1a1e25;
-  --color-navy-900: #20242b;
-  --color-navy-800: #34445c;
-  --color-navy-700: #4a5c78;
-  --color-navy-600: #66778f;
-  --color-navy-100: #e1e6ed;
-  --color-navy-50: #f0f3f7;
+  /* REC purple (primary) */
+  --color-navy-950: #1f0a35;
+  --color-navy-900: #30104f;
+  --color-navy-800: #512080;
+  --color-navy-700: #6a3a99;
+  --color-navy-600: #8a5fb5;
+  --color-navy-100: #ebe0f4;
+  --color-navy-50: #f6f1fb;
 
-  /* Lavender */
-  --color-lavender-50: #f7f3fd;
-  --color-lavender-100: #efe8fb;
-  --color-lavender-200: #e0d4f7;
-  --color-lavender-300: #cbb8f2;
-  --color-lavender-500: #9a7fd6;
-  --color-lavender-700: #5d4699;
+  /* Light purple tints */
+  --color-lavender-50: #f6f1fb;
+  --color-lavender-100: #ebe0f4;
+  --color-lavender-200: #e0d0ee;
+  --color-lavender-300: #c3a6dc;
+  --color-lavender-500: #6b3a9a;
+  --color-lavender-700: #512080;
 
-  /* Blush / rose (attention) */
-  --color-terracotta-50: #fdf4f8;
-  --color-terracotta-100: #f5d7e7;
-  --color-terracotta-300: #ebb5cf;
-  --color-terracotta-500: #c2578a;
-  --color-terracotta-600: #a8437a;
-  --color-terracotta-700: #8c3564;
+  /* Muted red (errors and attention only) */
+  --color-terracotta-50: #fbf0f0;
+  --color-terracotta-100: #f3d9d9;
+  --color-terracotta-300: #e3b0b0;
+  --color-terracotta-500: #b04a4a;
+  --color-terracotta-600: #9a3636;
+  --color-terracotta-700: #822a2a;
 
-  /* Pale yellow */
-  --color-butter-50: #fff6e3;
-  --color-butter-200: #ffe2ad;
-  --color-butter-500: #e3ab45;
-  --color-butter-700: #855a0a;
+  /* REC gold */
+  --color-gold: #f4c542;
+  --color-gold-dark: #d9a928;
+  --color-butter-50: #fef8e3;
+  --color-butter-200: #fbecbd;
+  --color-butter-500: #d9a928;
+  --color-butter-700: #7a5a00;
 
   --radius-md: 0.625rem;
 
-  --shadow-paper: 0 1px 2px rgb(32 36 43 / 0.03);
-  --shadow-lift: 0 12px 32px -12px rgb(32 36 43 / 0.18);
-  --shadow-frame: 0 20px 50px -24px rgb(52 68 92 / 0.28);
+  --shadow-paper: 0 1px 2px rgb(36 26 45 / 0.04);
+  --shadow-lift: 0 12px 32px -12px rgb(36 26 45 / 0.2);
+  --shadow-frame: 0 20px 50px -24px rgb(48 16 79 / 0.3);
 
   --animate-fade-in: fade-in 180ms ease-out;
   --animate-slide-up: slide-up 220ms cubic-bezier(0.2, 0.7, 0.2, 1);
@@ -94,7 +101,7 @@
     font-feature-settings: 'cv11', 'ss01';
   }
   ::selection {
-    background: var(--color-lavender-200);
+    background: var(--color-butter-200);
     color: var(--color-navy-900);
   }
   :focus-visible {
@@ -115,7 +122,7 @@
   }
   /* Page and section titles. */
   .display {
-    @apply font-sans font-semibold tracking-[-0.02em] text-ink;
+    @apply font-sans font-semibold tracking-[-0.02em] text-navy-900;
   }
   .display em {
     font-style: normal;
@@ -131,7 +138,7 @@
   }
   /* Standard white panel. */
   .paper {
-    @apply rounded-xl border border-line bg-white shadow-paper;
+    @apply rounded-md border border-line bg-white shadow-paper;
   }
 }
 

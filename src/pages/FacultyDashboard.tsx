@@ -25,7 +25,7 @@ export default function FacultyDashboard() {
 
   return (
     <div className="space-y-6">
-      <header className="paper p-5">
+      <header className="paper border-l-4 border-l-gold p-5">
         <p className="label-archival">Faculty records · {scope.join(' · ')}</p>
         <h1 className="display mt-1.5 text-[20px] leading-tight md:text-[22px]">
           {summary.total ? (

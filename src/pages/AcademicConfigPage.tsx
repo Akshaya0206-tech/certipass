@@ -131,7 +131,7 @@ export default function AcademicConfigPage() {
                 const isActive = d.active !== false
                 return (
                   <tr key={d.code} className="border-b border-line/70 last:border-0">
-                    <td className="px-4 py-3 font-mono text-[12.5px] text-terracotta-600">{d.code}</td>
+                    <td className="px-4 py-3 font-mono text-[12.5px] text-navy-800">{d.code}</td>
                     <td className={cn('px-4 py-3', isActive ? 'text-navy-900' : 'text-ink-muted')}>{d.name}</td>
                     <td className="hidden px-4 py-3 text-right tabular-nums text-ink-soft sm:table-cell">{u.students}</td>
                     <td className="hidden px-4 py-3 text-right tabular-nums text-ink-soft sm:table-cell">{u.faculty}</td>

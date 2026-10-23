@@ -192,7 +192,7 @@ export default function AnalyticsPage() {
                 {departments.map((d) => (
                   <tr key={d.code} className="border-b border-line/70 last:border-0">
                     <th scope="row" className="px-3 py-2.5 font-normal">
-                      <span className="font-mono text-[12.5px] text-terracotta-600">{d.code}</span>
+                      <span className="font-mono text-[12.5px] text-navy-800">{d.code}</span>
                       <span className="block text-[12px] text-ink-muted">{d.name}</span>
                     </th>
                     <td className="px-3 py-2.5 text-right text-navy-900 tabular-nums">{d.total}</td>

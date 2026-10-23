@@ -11,7 +11,7 @@ export type ButtonSize = 'sm' | 'md' | 'lg'
 const variants: Record<ButtonVariant, string> = {
   primary: 'bg-navy-800 text-white hover:bg-navy-700 active:bg-navy-900 disabled:bg-navy-600/50',
   secondary: 'border border-line-strong bg-white text-ink hover:bg-parchment disabled:text-ink-muted',
-  accent: 'bg-navy-800 text-white hover:bg-navy-700 active:bg-navy-900 disabled:bg-navy-600/50',
+  accent: 'bg-gold text-navy-900 hover:bg-gold-dark active:bg-gold-dark disabled:bg-gold/50 disabled:text-navy-900/60',
   ghost: 'text-navy-800 hover:bg-parchment disabled:text-ink-muted',
   danger: 'border border-terracotta-300 bg-terracotta-50 text-terracotta-700 hover:bg-terracotta-100',
   inverse: 'border border-ivory/25 text-ivory hover:bg-ivory/10',
@@ -25,7 +25,7 @@ const sizes: Record<ButtonSize, string> = {
 
 export function buttonClasses(variant: ButtonVariant = 'primary', size: ButtonSize = 'md', className?: string) {
   return cn(
-    'inline-flex shrink-0 items-center justify-center rounded-lg font-medium whitespace-nowrap transition-colors duration-150 disabled:cursor-not-allowed',
+    'inline-flex shrink-0 items-center justify-center rounded-md font-medium whitespace-nowrap transition-colors duration-150 disabled:cursor-not-allowed',
     variants[variant],
     sizes[size],
     className,

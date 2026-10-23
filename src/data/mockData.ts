@@ -24,7 +24,7 @@ import type {
 import { DEMO_ASSETS } from './demoAssets'
 import { DEMO_CREDENTIALS } from './seedCredentials'
 
-export const INSTITUTION_NAME = 'Demonstration College of Engineering'
+export const INSTITUTION_NAME = 'Rajalakshmi Engineering College'
 
 export const DEPARTMENTS: Department[] = [
   { code: 'CSE', name: 'Computer Science and Engineering' },

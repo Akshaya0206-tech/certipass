@@ -149,7 +149,7 @@ export default function AdminRecordsPage() {
           rows={paging.pageRows}
           rowKey={(r) => r.achievement.id}
           onRowClick={(r) => navigate(`/admin/records/${r.achievement.id}`)}
-          empty={<EmptyState title="No records match" body="Adjust the search or filters." action={active ? <button type="button" onClick={reset} className="text-sm font-medium text-terracotta-600 hover:underline">Clear filters</button> : undefined} />}
+          empty={<EmptyState title="No records match" body="Adjust the search or filters." action={active ? <button type="button" onClick={reset} className="text-sm font-medium text-navy-800 hover:underline">Clear filters</button> : undefined} />}
         />
       )}
       <Pagination {...paging} onPage={paging.setPage} />

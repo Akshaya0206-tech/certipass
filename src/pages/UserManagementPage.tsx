@@ -153,7 +153,7 @@ export default function UserManagementPage() {
         rows={paging.pageRows}
         rowKey={(u) => u.id}
         onRowClick={(u) => navigate(`/admin/users/${u.id}`)}
-        empty={<EmptyState title="No users match" body="Adjust the search or filters." action={active ? <button type="button" onClick={reset} className="text-sm font-medium text-terracotta-600 hover:underline">Clear filters</button> : undefined} />}
+        empty={<EmptyState title="No users match" body="Adjust the search or filters." action={active ? <button type="button" onClick={reset} className="text-sm font-medium text-navy-800 hover:underline">Clear filters</button> : undefined} />}
       />
       <Pagination {...paging} onPage={paging.setPage} noun="users" />
     </div>

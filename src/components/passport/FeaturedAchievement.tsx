@@ -25,7 +25,7 @@ export function FeaturedAchievement({ achievement, href }: { achievement: Achiev
   return (
     <section aria-labelledby="featured-heading" className="relative overflow-hidden rounded-xl border border-line bg-white p-5 shadow-paper">
       <h2 id="featured-heading" className="label-archival">Featured achievement</h2>
-      <Stamp className="absolute top-4 right-4 size-12 rotate-[-12deg] text-terracotta-500/25" strokeWidth={1.2} aria-hidden />
+      <Stamp className="absolute top-4 right-4 size-12 rotate-[-12deg] text-gold-dark/40" strokeWidth={1.2} aria-hidden />
       <p className="mt-3 pr-12 font-serif text-[17px] leading-snug text-navy-900">{a.eventName}</p>
       <p className="mt-1 font-serif text-[15px] text-navy-700 italic">{a.position ?? a.achievementType}</p>
       <dl className="mt-4 grid grid-cols-2 gap-3 text-[12.5px]">

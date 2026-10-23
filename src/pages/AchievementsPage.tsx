@@ -222,7 +222,7 @@ function Library() {
               </ul>
             )}
             {active && (
-              <button type="button" onClick={reset} className="text-[13px] font-medium text-terracotta-600 underline-offset-2 hover:underline">
+              <button type="button" onClick={reset} className="text-[13px] font-medium text-navy-800 underline-offset-2 hover:underline">
                 Clear filters
               </button>
             )}

@@ -418,7 +418,7 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
                     <Check className="size-2.5" strokeWidth={3} aria-hidden />
                   </span>
                 ) : (
-                  <CircleDashed className={cn('size-4', i === step ? 'text-terracotta-500' : 'text-line-strong')} aria-hidden />
+                  <CircleDashed className={cn('size-4', i === step ? 'text-gold-dark' : 'text-line-strong')} aria-hidden />
                 )}
                 <span className={cn(i === step ? 'font-medium text-navy-900' : state === 'complete' ? 'text-ink-soft' : 'text-ink-muted')}>{WIZARD_STEPS[i]}</span>
                 <span className="ml-auto text-[11.5px] text-ink-muted">{state === 'complete' ? 'Done' : state === 'optional-empty' ? 'Optional' : 'To do'}</span>

@@ -211,7 +211,7 @@ export default function FacultyReportsPage() {
             <button
               type="button"
               onClick={() => setFilters(EMPTY_REPORT_FILTERS)}
-              className="text-[13px] font-medium text-terracotta-600 underline-offset-2 hover:underline sm:ml-auto sm:pb-3"
+              className="text-[13px] font-medium text-navy-800 underline-offset-2 hover:underline sm:ml-auto sm:pb-3"
             >
               Reset filters
             </button>

@@ -13,7 +13,7 @@ export interface LedgerItem {
 
 const toneChip: Record<NonNullable<LedgerItem['tone']>, string> = {
   default: 'bg-butter-200 text-butter-700',
-  navy: 'bg-sky-200 text-sky-700',
+  navy: 'bg-navy-800 text-white',
   lavender: 'bg-lavender-200 text-lavender-700',
   terracotta: 'bg-terracotta-100 text-terracotta-700',
 }
@@ -27,7 +27,7 @@ export function StatLedger({ items, className, caption }: { items: LedgerItem[];
           const Icon = item.icon
           const tone = item.tone ?? 'default'
           return (
-            <div key={item.label} className="paper flex flex-col gap-1 p-4">
+            <div key={item.label} className="paper flex flex-col gap-1 border-t-[3px] border-t-navy-800 p-4">
               <dt className="flex items-center gap-2 text-[12.5px] font-medium text-ink-muted">
                 {Icon && (
                   <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-lg', toneChip[tone])} aria-hidden>
