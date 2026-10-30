@@ -161,7 +161,11 @@ export async function submitAchievement(
   studentId: string,
   formData: AchievementFormData,
   certificate: CertificateFile | undefined,
-  options: { draftId?: string } = {},
+  /**
+   * `achievementId`: when the certificate was already uploaded to storage, the
+   * upload was made under this id, so the record must be created with the same one.
+   */
+  options: { draftId?: string; achievementId?: string } = {},
 ): Promise<SubmissionResult> {
   await delay(900)
   simulateFailureIfRequested()
@@ -169,9 +173,15 @@ export async function submitAchievement(
   const form = normalizeForm(formData)
   assertValid(form, !!certificate)
 
+  // The same submission arriving twice (a retry after the record was already saved) must not create a second record.
+  if (options.achievementId) {
+    const already = getState().achievements.find((a) => a.id === options.achievementId && a.studentId === studentId)
+    if (already) return { achievement: already, reference: already.reference }
+  }
+
   const now = new Date().toISOString()
   const achievement: Achievement = {
-    id: createId('ach'),
+    id: options.achievementId ?? createId('ach'),
     reference: nextReference(form.eventDate.slice(0, 4)),
     studentId,
     ...fieldsFromForm(form),

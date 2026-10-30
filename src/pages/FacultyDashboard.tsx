@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Award, FileSpreadsheet, Files, GraduationCap, Medal, Users } from 'lucide-react'
+import { AchievementAnalytics } from '../components/faculty/AchievementAnalytics'
 import { FacultyRecordsTable } from '../components/FacultyRecordsTable'
 import { SectionHeading } from '../components/ui/PageHeader'
 import { StatLedger } from '../components/ui/StatLedger'
@@ -63,6 +64,8 @@ export default function FacultyDashboard() {
           {summary.archived > 0 ? `, and ${summary.archived} archived ${summary.archived === 1 ? 'record is' : 'records are'} left out` : ''}.
         </p>
       </div>
+
+      <AchievementAnalytics />
 
       <div className="grid gap-5 2xl:grid-cols-[1fr_280px]">
         <section aria-labelledby="recent-heading" className="min-w-0">

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { CircleAlert, UserPlus } from 'lucide-react'
-import { AccountStatusButton, AccountStatusLabel } from '../components/admin/AccountStatus'
+import { CircleAlert, UserCheck, UserCog, UserPlus, UserX } from 'lucide-react'
+import { AccountStatusLabel } from '../components/admin/AccountStatus'
+import { FacultyRowActions } from '../components/admin/FacultyActions'
 import { Button } from '../components/ui/Button'
 import { DataTable } from '../components/ui/DataTable'
 import type { Column } from '../components/ui/DataTable'
@@ -11,12 +12,14 @@ import { FilterBar, FilterSelect, SearchInput } from '../components/ui/Filters'
 import { Field, PasswordInput, SelectInput, TextInput } from '../components/ui/FormField'
 import { PageHeader } from '../components/ui/PageHeader'
 import { EmptyState } from '../components/ui/States'
+import { StatLedger } from '../components/ui/StatLedger'
 import { useToast } from '../context/ToastContext'
 import { useAcademicConfig } from '../hooks/useAcademics'
 import { useAchievements, useUsers } from '../hooks/useData'
 import { activeDepartments } from '../services/academicService'
 import { AdminError, createFacultyAccount, validateFacultyInput } from '../services/adminService'
 import type { FacultyErrors, FacultyInput } from '../services/adminService'
+import { backendEnabled, isServerId } from '../services/auth/backend'
 import { facultyScope, getFacultyRecordSummary } from '../services/facultyService'
 import type { FacultyUser } from '../types'
 
@@ -43,7 +46,10 @@ export default function FacultyManagementPage() {
     }
   }, [params, setParams])
 
-  const faculty = useMemo(() => users.filter((u): u is FacultyUser => u.role === 'faculty'), [users])
+  // Connected to the server, these are the accounts the server holds. The prototype's demo faculty can't sign in there, so they aren't listed.
+  const faculty = useMemo(() => users.filter((u): u is FacultyUser => u.role === 'faculty' && (!backendEnabled() || isServerId(u.id))), [users])
+  // Totals are over every faculty account, whatever the search and filters below are showing.
+  const totals = useMemo(() => ({ active: faculty.filter((u) => u.active).length, inactive: faculty.filter((u) => !u.active).length }), [faculty])
   const rows = useMemo<Row[]>(() => {
     const q = query.trim().toLowerCase()
     return faculty
@@ -94,8 +100,8 @@ export default function FacultyManagementPage() {
         </span>
       ),
     },
-    { key: 'status', header: 'Status', render: (u) => <AccountStatusLabel active={u.active} /> },
-    { key: 'action', header: <span className="sr-only">Action</span>, align: 'right', hideBelow: 'sm', render: (u) => <AccountStatusButton user={u} /> },
+    { key: 'status', header: 'Status', render: (u) => <AccountStatusLabel active={u.active} pending={u.pending} /> },
+    { key: 'action', header: <span className="sr-only">Actions</span>, align: 'right', hideBelow: 'sm', render: (u) => <FacultyRowActions user={u} /> },
   ]
 
   return (
@@ -103,15 +109,23 @@ export default function FacultyManagementPage() {
       <PageHeader
         kicker={`Administration · ${faculty.length} faculty accounts`}
         title="Faculty Management"
-        description="Faculty accounts are created here by an administrator; there is no public faculty registration. Open an account to see its profile and the records it covers, or to edit it."
+        description="Faculty accounts are created here by an administrator; there is no public faculty registration. Open an account to see its profile and the records it covers, or use the actions to edit it, reset its password, switch it off or delete it."
         actions={
           <Button onClick={() => setAdding(true)} icon={<UserPlus className="size-4" aria-hidden />}>
             Add Faculty
           </Button>
         }
       />
+      <StatLedger
+        caption="Faculty accounts"
+        items={[
+          { label: 'Total Faculty', value: faculty.length, icon: UserCog },
+          { label: 'Active Faculty', value: totals.active, icon: UserCheck, tone: 'navy', note: 'Can sign in' },
+          { label: 'Inactive Faculty', value: totals.inactive, icon: UserX, tone: 'terracotta', note: 'Switched off' },
+        ]}
+      />
       <FilterBar active={active} onReset={reset} resultLabel={`${rows.length} of ${faculty.length} faculty`}>
-        <SearchInput value={query} onChange={setQuery} placeholder="Name or username" className="md:w-64" label="Search faculty" />
+        <SearchInput value={query} onChange={setQuery} placeholder="Name or email" className="md:w-64" label="Search faculty" />
         <div className="grid grid-cols-2 gap-2 md:flex">
           <FilterSelect label="Department" value={department} onChange={setDepartment} options={[{ value: 'all', label: 'All departments' }, ...config.departments.map((d) => ({ value: d.code, label: d.code }))]} className="md:w-40" />
           <FilterSelect<'all' | 'active' | 'inactive'>
@@ -224,13 +238,21 @@ function AddFacultyDialog({ open, onClose, onCreated }: { open: boolean; onClose
           <Field label="Full name" required error={err('fullName')} className="sm:col-span-2">
             <TextInput value={form.fullName} onChange={(e) => set('fullName', e.target.value)} maxLength={80} placeholder="e.g. Dr. Priya Nair" />
           </Field>
-          <Field label="Username" required error={err('username')} hint="Lowercase letters, numbers, dots or underscores. Used to sign in.">
-            <TextInput value={form.username} onChange={(e) => set('username', e.target.value.toLowerCase())} autoCapitalize="none" spellCheck={false} autoComplete="off" />
+          <Field
+            label="Email address"
+            required
+            error={err('username')}
+            hint={backendEnabled() ? 'Their @rajalakshmi.edu.in email. They sign in with it.' : 'Their @rajalakshmi.edu.in email (or a short username). Used to sign in.'}
+          >
+            <TextInput value={form.username} onChange={(e) => set('username', e.target.value.toLowerCase())} autoCapitalize="none" spellCheck={false} autoComplete="off" inputMode="email" />
           </Field>
           <Field label="Designation" required error={err('designation')}>
             <TextInput value={form.designation} onChange={(e) => set('designation', e.target.value)} maxLength={80} placeholder="e.g. Assistant Professor" />
           </Field>
-          <Field label="Department" required error={err('department')} className="sm:col-span-2">
+          <Field label="Role" hint="Set automatically. This account can open the Faculty workspace only.">
+            <TextInput value="Faculty" readOnly disabled />
+          </Field>
+          <Field label="Department" required error={err('department')}>
             <SelectInput value={form.department} onChange={(e) => set('department', e.target.value)}>
               <option value="">Select department</option>
               {departments.map((d) => (
@@ -269,7 +291,8 @@ function AddFacultyDialog({ open, onClose, onCreated }: { open: boolean; onClose
           </Field>
         </div>
         <p className="text-[12.5px] text-ink-muted">
-          The password is stored only as a salted hash and can’t be viewed afterwards. Prototype note: accounts created here exist in this browser only.
+          The password is stored only as a salted hash and can’t be viewed afterwards.
+          {backendEnabled() ? '' : ' Prototype note: accounts created here exist in this browser only.'}
         </p>
       </form>
     </Dialog>

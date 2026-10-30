@@ -16,6 +16,8 @@ const StudentDashboard = lazy(() => import('./pages/StudentDashboard'))
 const AchievementsPage = lazy(() => import('./pages/AchievementsPage'))
 const AddAchievementPage = lazy(() => import('./pages/AddAchievementPage'))
 const AchievementDetailPage = lazy(() => import('./pages/AchievementDetailPage'))
+const StudentCertificatesPage = lazy(() => import('./pages/StudentCertificatesPage'))
+const CertificatesDirectoryPage = lazy(() => import('./pages/CertificatesDirectoryPage'))
 const EditAchievementPage = lazy(() => import('./pages/EditAchievementPage'))
 const SubmissionConfirmationPage = lazy(() => import('./pages/SubmissionConfirmationPage'))
 const TimelinePage = lazy(() => import('./pages/TimelinePage'))
@@ -74,6 +76,7 @@ export default function App() {
                   <Route path="achievements/:id" element={<AchievementDetailPage />} />
                   <Route path="achievements/:id/edit" element={<EditAchievementPage />} />
                   <Route path="achievements/:id/submitted" element={<SubmissionConfirmationPage />} />
+                  <Route path="certificates" element={<StudentCertificatesPage />} />
                   <Route path="timeline" element={<TimelinePage />} />
                   <Route path="notifications" element={<NotificationsPage />} />
                   <Route path="profile" element={<ProfilePage />} />
@@ -88,6 +91,7 @@ export default function App() {
                   <Route path="students" element={<FacultyStudentsPage />} />
                   <Route path="batches" element={<FacultyBatchAchievementsPage />} />
                   <Route path="records/:id" element={<FacultyRecordDetailPage />} />
+                  <Route path="certificates" element={<CertificatesDirectoryPage />} />
                   <Route path="reports" element={<FacultyReportsPage />} />
                   <Route path="profile" element={<ProfilePage />} />
                   {/*
@@ -111,6 +115,7 @@ export default function App() {
                   <Route path="academics" element={<AcademicConfigPage />} />
                   <Route path="records" element={<AdminRecordsPage />} />
                   <Route path="records/:id" element={<AdminRecordDetailPage />} />
+                  <Route path="certificates" element={<CertificatesDirectoryPage />} />
                   <Route path="analytics" element={<AnalyticsPage />} />
                   <Route path="activity" element={<AdminActivityPage />} />
                   {/* Earlier phases used these paths; keep old links working. */}

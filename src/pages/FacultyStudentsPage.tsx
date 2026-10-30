@@ -1,15 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { FileSearch } from 'lucide-react'
+import { buttonClasses } from '../components/ui/Button'
+import { StudentCertificatesDialog } from '../components/CertificateViewer'
 import { DataTable } from '../components/ui/DataTable'
 import type { Column } from '../components/ui/DataTable'
 import { FilterBar, FilterSelect, SearchInput } from '../components/ui/Filters'
 import { PageHeader } from '../components/ui/PageHeader'
 import { EmptyState } from '../components/ui/States'
 import { batchLabel } from '../domain/batch'
+import { activeRecords } from '../domain/status'
 import { useFacultyBatches, useFacultyScope, useFacultyStudentRows } from '../hooks/useFacultyRecords'
 import { formatDate, ordinalYear } from '../lib/format'
 import { activeSections } from '../services/academicService'
 import type { FacultyStudentRow } from '../services/facultyService'
+import { useStore } from '../services/store'
 
 /**
  * Students in the departments this member of faculty covers, with how many
@@ -29,6 +34,13 @@ export default function FacultyStudentsPage() {
   const [year, setYear] = useState('all')
   const [section, setSection] = useState('all')
   const [batch, setBatch] = useState('all')
+  const [viewing, setViewing] = useState<FacultyStudentRow | null>(null)
+  const achievements = useStore((s) => s.achievements)
+  // Only students already in this member of faculty's scope appear as rows, so their records are in scope too.
+  const viewingRecords = useMemo(
+    () => (viewing ? activeRecords(achievements.filter((a) => a.studentId === viewing.student.id)).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)) : []),
+    [achievements, viewing],
+  )
 
   // A link from a record detail page arrives with ?q=<register number>.
   useEffect(() => {
@@ -113,6 +125,28 @@ export default function FacultyStudentsPage() {
       align: 'right',
       hideBelow: 'lg',
     },
+    {
+      key: 'certificates',
+      header: <span className="sr-only">Certificates</span>,
+      align: 'right',
+      render: (r) =>
+        r.counts.total === 0 ? (
+          <span className="text-[12.5px] whitespace-nowrap text-ink-muted">No records</span>
+        ) : (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              setViewing(r)
+            }}
+            className={buttonClasses('accent', 'sm')}
+          >
+            <FileSearch className="size-3.5" aria-hidden />
+            View Certificates
+            <span className="sr-only">: {r.student.fullName}</span>
+          </button>
+        ),
+    },
   ]
 
   return (
@@ -184,6 +218,7 @@ export default function FacultyStudentsPage() {
       <p className="text-[12px] text-ink-muted">
         Record counts are each student’s submitted achievements, grouped by the result they recorded. Drafts are private to the student and never counted.
       </p>
+      <StudentCertificatesDialog student={viewing?.student ?? null} batch={viewing?.batch ?? ''} records={viewingRecords} onClose={() => setViewing(null)} />
     </div>
   )
 }

@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { Lock, PenLine, SearchX } from 'lucide-react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { KeyRound, Lock, PenLine, SearchX, Trash2 } from 'lucide-react'
 import { AccountStatusButton, AccountStatusLabel } from '../components/admin/AccountStatus'
+import { DeleteFacultyDialog, ResetPasswordDialog } from '../components/admin/FacultyActions'
 import { DetailList } from '../components/RecordDetails'
 import { Breadcrumbs } from '../components/ui/Breadcrumbs'
 import { Button, ButtonLink } from '../components/ui/Button'
@@ -44,6 +45,20 @@ export default function AdminUserDetailPage() {
   const [errors, setErrors] = useState<Partial<Record<keyof UserEdit, string>>>({})
   const [saving, setSaving] = useState(false)
   const inFlight = useRef(false)
+  const navigate = useNavigate()
+  const [params, setParams] = useSearchParams()
+  const [resetting, setResetting] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  // "Edit" in the faculty list arrives here with ?edit=1 and opens the form straight away.
+  useEffect(() => {
+    if (params.get('edit') === '1' && user) {
+      setEdit(toEdit(user))
+      setErrors({})
+      setEditing(true)
+      setParams({}, { replace: true })
+    }
+  }, [params, setParams, user])
 
   const records = useMemo(() => (user?.role === 'student' ? achievements.filter((a) => a.studentId === user.id).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)) : []), [achievements, user])
   const counts = useMemo(() => getAdminOverview([], records), [records])
@@ -110,7 +125,7 @@ export default function AdminUserDetailPage() {
   } else {
     rows.push(['Office', user.department], ['Designation', user.designation])
   }
-  rows.push(['Account status', <AccountStatusLabel key="s" active={user.active} />], ['Created', formatDate(user.createdAt)])
+  rows.push(['Account status', <AccountStatusLabel key="s" active={user.active} pending={user.pending} />], ['Created', formatDate(user.createdAt)])
 
   return (
     <div className="space-y-8">
@@ -126,7 +141,7 @@ export default function AdminUserDetailPage() {
               <h1 className="display mt-1 text-[20px] leading-tight md:text-[23px]">{user.fullName}</h1>
               <p className="mt-1 flex flex-wrap items-center gap-x-3 text-sm text-ink-muted">
                 <span className="font-mono">@{user.username}</span>
-                <AccountStatusLabel active={user.active} />
+                <AccountStatusLabel active={user.active} pending={user.pending} />
               </p>
             </div>
           </div>
@@ -136,7 +151,17 @@ export default function AdminUserDetailPage() {
                 Edit details
               </Button>
             )}
+            {user.role === 'faculty' && (
+              <Button variant="secondary" onClick={() => setResetting(true)} icon={<KeyRound className="size-4" aria-hidden />}>
+                Reset password
+              </Button>
+            )}
             <AccountStatusButton user={user} size="md" />
+            {user.role === 'faculty' && (
+              <Button variant="danger" onClick={() => setDeleting(true)} icon={<Trash2 className="size-4" aria-hidden />}>
+                Delete
+              </Button>
+            )}
           </div>
         </header>
       </div>
@@ -220,7 +245,10 @@ export default function AdminUserDetailPage() {
             <section className="paper p-5" aria-labelledby="account-heading">
               <h2 id="account-heading" className="label-archival mb-4">{user.role === 'student' ? 'Academic profile' : user.role === 'faculty' ? 'Faculty profile' : 'Administrator profile'}</h2>
               <DetailList rows={rows} />
-              <p className="mt-5 border-t border-line pt-3 text-[12px] text-ink-muted">Passwords are never shown or stored in readable form, and can’t be viewed or changed from this page.</p>
+              <p className="mt-5 border-t border-line pt-3 text-[12px] text-ink-muted">
+                Passwords are never shown or stored in readable form.{' '}
+                {user.role === 'faculty' ? 'Use Reset password to give this account a new one.' : 'They can’t be viewed or changed from this page.'}
+              </p>
             </section>
           )}
 
@@ -328,6 +356,13 @@ export default function AdminUserDetailPage() {
           {user.role === 'admin' && <p className="rounded-md border border-dashed border-line-strong px-4 py-4 text-sm text-ink-muted">Administrator accounts have no achievements or review activity.</p>}
         </div>
       </div>
+
+      {user.role === 'faculty' && (
+        <>
+          <ResetPasswordDialog user={user} open={resetting} onClose={() => setResetting(false)} />
+          <DeleteFacultyDialog user={user} open={deleting} onClose={() => setDeleting(false)} onDeleted={() => navigate('/admin/faculty', { replace: true })} />
+        </>
+      )}
     </div>
   )
 }

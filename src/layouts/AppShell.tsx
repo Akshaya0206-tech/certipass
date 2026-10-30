@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { INSTITUTION_NAME } from '../data/mockData'
 import { useNotifications, useRequiredUser } from '../hooks/useData'
+import { useDirectoryRefresh } from '../hooks/useDirectoryRefresh'
 import { cn } from '../lib/cn'
 import { initials } from '../lib/format'
 import { homePathFor } from '../services/auth'
@@ -55,6 +56,7 @@ export function AppShell() {
   const mainRef = useRef<HTMLElement>(null)
   const deniedPath = (location.state as AccessDeniedState | null)?.deniedPath
   const notifications = useNotifications()
+  useDirectoryRefresh(user.role === 'admin')
 
   const badges = useMemo(
     () => ({ unreadNotifications: notifications.filter((n) => n.userId === user.id && !n.read).length }),

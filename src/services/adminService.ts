@@ -6,9 +6,10 @@
  * the activity feed. Figures and charts live in analyticsService.ts.
  *
  * Every change requires a signed-in administrator (services/auth/actor.ts)
- * and is written to the audit trail. Nothing is ever deleted: accounts are
- * deactivated, and a record that should leave the active register is archived,
- * which keeps its details, result and certificate exactly as submitted.
+ * and is written to the audit trail. Students and administrators are never
+ * deleted: they are deactivated, and a record that should leave the active
+ * register is archived, which keeps its details, result and certificate exactly
+ * as submitted. Only a faculty account can be deleted, because it owns no records.
  *
  * Administrators do not judge achievements. Archiving is housekeeping, not a
  * verdict, and it is the only change an administrator can make to a record.
@@ -48,9 +49,11 @@ import {
 } from './analyticsService'
 import type { TimeRange } from './analyticsService'
 import { PermissionError, requireActor } from './auth/actor'
+import { backendEnabled, BackendError, isServerId } from './auth/backend'
 import { setPassword } from './auth/credentials'
-import { PASSWORD_RULES, USERNAME_PATTERN } from './auth/validation'
+import { COLLEGE_EMAIL_DOMAIN, PASSWORD_RULES, signInNameError } from './auth/validation'
 import { recordAudit } from './auditService'
+import { createStaffOnServer, deleteAccountOnServer, resetPasswordOnServer, updateAccountOnServer } from './accountApi'
 import { ACCEPTED_TYPES } from './fileService'
 import { createId, delay, getState, setState } from './store'
 
@@ -73,18 +76,37 @@ const describe = (u: Pick<User, 'fullName' | 'username'>) => `${u.fullName} (@${
  * Activate or deactivate an account. Deactivation blocks sign-in and ends any
  * open session, but keeps the account and all of its records.
  */
-export function setUserActive(userId: string, active: boolean): User {
+export async function setUserActive(userId: string, active: boolean): Promise<User> {
   const admin = requireActor('admin')
   const target = getState().users.find((u) => u.id === userId)
   if (!target) throw new AdminError('not_found', 'That account no longer exists.')
   if (target.id === admin.id && !active) throw new AdminError('not_allowed', 'You can’t deactivate the account you’re signed in with.')
   if (target.active === active) return target
-  const updated = { ...target, active } as User
-  setState((s) => ({ ...s, users: s.users.map((u) => (u.id === userId ? updated : u)) }))
+  let updated: User
+  if (backendEnabled() && isServerId(userId)) {
+    // The server decides, from its own records, whether this administrator may do this. For a pending student, "active" is the approval.
+    try {
+      updated = await updateAccountOnServer(userId, { status: active ? 'active' : 'inactive' })
+    } catch (err) {
+      throw serverError(err)
+    }
+  } else {
+    updated = { ...target, active } as User
+    setState((s) => ({ ...s, users: s.users.map((u) => (u.id === userId ? updated : u)) }))
+  }
   recordAudit(admin, active ? 'account_activated' : 'account_deactivated', `${active ? 'Activated' : 'Deactivated'} ${describe(target)}`, target.id)
   return updated
 }
 
+/** A refusal or failure from the server, as the error the admin screens already understand. */
+function serverError(err: unknown): AdminError {
+  if (!(err instanceof BackendError)) return new AdminError('invalid', 'Something went wrong. Please try again.')
+  const field = err.extra.field === 'email' ? 'username' : typeof err.extra.field === 'string' ? err.extra.field : undefined
+  if (err.code === 'duplicate_email') return new AdminError('duplicate', err.message, 'username')
+  if (err.code === 'user_not_found') return new AdminError('not_found', err.message)
+  if (err.status === 403 || err.status === 409) return new AdminError('not_allowed', err.message)
+  return new AdminError('invalid', err.message, field)
+}
 export interface FacultyInput {
   fullName: string
   username: string
@@ -116,9 +138,11 @@ function validateFacultyProfile(input: Pick<FacultyInput, 'fullName' | 'departme
 export function validateFacultyInput(input: FacultyInput, users: User[] = getState().users): FacultyErrors {
   const e = validateFacultyProfile(input)
   const username = input.username.trim().toLowerCase()
-  if (!username) e.username = 'Choose a username.'
-  else if (!USERNAME_PATTERN.test(username)) e.username = '3–24 characters: lowercase letters, numbers, dots or underscores. Must start with a letter or number.'
-  else if (users.some((u) => u.username.toLowerCase() === username)) e.username = 'This username is already taken.'
+  const usernameProblem = signInNameError(username)
+  if (usernameProblem) e.username = usernameProblem
+  // The CertiPass server signs people in by email, so a faculty account needs one.
+  else if (backendEnabled() && !username.includes('@')) e.username = `Enter their college email address (name@${COLLEGE_EMAIL_DOMAIN}).`
+  else if (users.some((u) => u.username.toLowerCase() === username)) e.username = 'This email or username is already taken.'
   if (!input.password) e.password = 'Set an initial password.'
   else if (!PASSWORD_RULES.every((r) => r.test(input.password))) e.password = 'At least 8 characters, with upper and lower case letters and a number.'
   if (!input.confirmPassword) e.confirmPassword = 'Re-enter the password.'
@@ -137,6 +161,26 @@ export async function createFacultyAccount(input: FacultyInput): Promise<Faculty
   const firstField = Object.keys(errors)[0] as keyof FacultyInput | undefined
   if (firstField) throw new AdminError(errors[firstField]!.includes('already taken') ? 'duplicate' : 'invalid', errors[firstField]!, firstField)
   await delay(400)
+
+  if (backendEnabled()) {
+    // The server creates the account and hashes the password; the password is sent once, over HTTPS, and never kept here.
+    let created: User
+    try {
+      created = await createStaffOnServer({
+        role: 'faculty',
+        email: input.username.trim().toLowerCase(),
+        fullName: input.fullName.trim().replace(/\s+/g, ' '),
+        department: input.department,
+        designation: input.designation.trim(),
+        reviewDepartments: input.reviewDepartments.length ? [...new Set(input.reviewDepartments)] : [input.department],
+        password: input.password,
+      })
+    } catch (err) {
+      throw serverError(err)
+    }
+    recordAudit(admin, 'faculty_created', `Created faculty account ${describe(created)} in ${created.department}`, created.id)
+    return created as FacultyUser
+  }
 
   const faculty: FacultyUser = {
     id: createId('fac'),
@@ -160,9 +204,66 @@ export async function createFacultyAccount(input: FacultyInput): Promise<Faculty
     }
     return { ...s, users: [...s.users, faculty] }
   })
-  if (clash) throw new AdminError('duplicate', 'This username is already taken.', 'username')
+  if (clash) throw new AdminError('duplicate', 'This email or username is already taken.', 'username')
   recordAudit(admin, 'faculty_created', `Created faculty account ${describe(faculty)} in ${faculty.department}`, faculty.id)
   return faculty
+}
+
+/** Why a new password isn't acceptable, or undefined when it is. The same rules the server applies. */
+export function newPasswordError(password: string, confirmPassword: string): string | undefined {
+  if (!password) return 'Enter the new password.'
+  if (!PASSWORD_RULES.every((r) => r.test(password))) return 'At least 8 characters, with upper and lower case letters and a number.'
+  if (password !== confirmPassword) return 'The two passwords do not match.'
+  return undefined
+}
+
+function facultyTarget(userId: string): FacultyUser {
+  const target = getState().users.find((u) => u.id === userId)
+  if (!target) throw new AdminError('not_found', 'That account no longer exists.')
+  if (target.role !== 'faculty') throw new AdminError('not_allowed', 'This is only for faculty accounts.')
+  return target
+}
+
+/**
+ * Set a new password for a faculty member. The old password stops working and their open sign-ins end. The new one is
+ * hashed by whoever stores it and is kept nowhere in readable form, including the audit trail.
+ */
+export async function resetFacultyPassword(userId: string, password: string, confirmPassword: string): Promise<void> {
+  const admin = requireActor('admin')
+  const target = facultyTarget(userId)
+  const problem = newPasswordError(password, confirmPassword)
+  if (problem) throw new AdminError('invalid', problem, 'password')
+  await delay(300)
+  if (backendEnabled() && isServerId(userId)) {
+    try {
+      await resetPasswordOnServer(userId, password)
+    } catch (err) {
+      throw serverError(err)
+    }
+  } else {
+    await setPassword(userId, password)
+  }
+  recordAudit(admin, 'faculty_password_reset', `Reset the password for ${describe(target)}`, target.id)
+}
+
+/**
+ * Delete a faculty account. Only faculty can be deleted: students and administrators are deactivated instead, so the
+ * records they own are never lost. The faculty member can no longer sign in; the student records they could see are untouched.
+ */
+export async function deleteFacultyAccount(userId: string): Promise<void> {
+  const admin = requireActor('admin')
+  const target = facultyTarget(userId)
+  await delay(300)
+  if (backendEnabled() && isServerId(userId)) {
+    try {
+      await deleteAccountOnServer(userId)
+    } catch (err) {
+      throw serverError(err)
+    }
+  } else {
+    setState((s) => ({ ...s, users: s.users.filter((u) => u.id !== userId) }))
+  }
+  recordAudit(admin, 'faculty_deleted', `Deleted faculty account ${describe(target)} in ${target.department}`, target.id)
 }
 
 /** The fields an administrator may correct on each kind of account. Username, role and register number are never editable. */
@@ -205,6 +306,22 @@ export async function updateUserByAdmin(userId: string, edit: UserEdit): Promise
   const firstField = Object.keys(errors)[0] as keyof UserEdit | undefined
   if (firstField) throw new AdminError('invalid', errors[firstField]!, firstField)
   await delay(300)
+
+  if (backendEnabled() && isServerId(userId)) {
+    const changes =
+      current.role === 'student'
+        ? { fullName: edit.fullName, department: edit.department, year: Number(edit.year), section: edit.section }
+        : current.role === 'faculty'
+          ? { fullName: edit.fullName, department: edit.department, designation: edit.designation, reviewDepartments: edit.reviewDepartments.length ? edit.reviewDepartments : [edit.department] }
+          : { fullName: edit.fullName, designation: edit.designation }
+    try {
+      const updatedOnServer = await updateAccountOnServer(userId, changes)
+      recordAudit(admin, 'profile_updated', `Updated details for ${describe(current)}`, current.id)
+      return updatedOnServer
+    } catch (err) {
+      throw serverError(err)
+    }
+  }
 
   const fullName = edit.fullName.trim().replace(/\s+/g, ' ')
   let updated: User

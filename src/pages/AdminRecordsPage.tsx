@@ -6,6 +6,7 @@ import { DataTable } from '../components/ui/DataTable'
 import type { Column } from '../components/ui/DataTable'
 import { FilterBar, FilterSelect, SearchInput } from '../components/ui/Filters'
 import { CHEVRON } from '../components/ui/FormField'
+import { OpenDriveFolderButton } from '../components/admin/DriveStorage'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Pagination, usePagination } from '../components/ui/Pagination'
 import { EmptyState } from '../components/ui/States'
@@ -105,9 +106,12 @@ export default function AdminRecordsPage() {
         title="Achievement Records"
         description="The register of every submitted achievement across departments. Open a record to see its details, certificate, comments and history. Records can be archived here, which keeps them in full but leaves them out of active lists and reports."
         actions={
-          <Button variant="secondary" onClick={exportCsv} icon={<Download className="size-4" aria-hidden />}>
-            Export CSV
-          </Button>
+          <>
+            <OpenDriveFolderButton />
+            <Button variant="secondary" onClick={exportCsv} icon={<Download className="size-4" aria-hidden />}>
+              Export CSV
+            </Button>
+          </>
         }
       />
       <FilterBar active={active} onReset={reset} resultLabel={`${rows.length} of ${achievements.length} records`}>

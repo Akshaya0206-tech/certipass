@@ -1,0 +1,33 @@
+# Copy to `.dev.vars` (git-ignored) for `wrangler dev` and the helper scripts.
+# Every value below is a placeholder. Never commit real values.
+
+# ── Accounts ──
+# At least 32 random characters, mixed into every password hash. Make one with:
+#   node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+# Changing it later invalidates every password, so keep the same value in your Worker secrets.
+AUTH_PEPPER=generate-a-long-random-value-here
+# One-time secret for `npm run admin:create` (creates the first administrator). At least 20 characters.
+SETUP_TOKEN=generate-another-long-random-value
+
+# ── Google Drive ──
+# The id is the last part of the folder URL: drive.google.com/drive/folders/<ID>
+GOOGLE_DRIVE_ROOT_FOLDER_ID=your-drive-folder-id
+
+# Option A (default): OAuth. A person or shared records-office account with Editor access to the folder.
+GOOGLE_AUTH_MODE=oauth
+GOOGLE_OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_OAUTH_CLIENT_SECRET=your-client-secret
+# Written into this file by `npm run drive:authorize` (it is never printed). Treat it like a password.
+GOOGLE_OAUTH_REFRESH_TOKEN=
+
+# Option B: service account. Only works when the folder is inside a Shared Drive.
+# GOOGLE_AUTH_MODE=service_account
+# GOOGLE_SERVICE_ACCOUNT_EMAIL=certipass@your-project.iam.gserviceaccount.com
+# GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+
+# ── Behaviour (optional; these have defaults, see wrangler.toml) ──
+ALLOWED_ORIGINS=http://localhost:5173
+PENDING_STALE_MINUTES=10
+# REGISTRATION_MODE=open
+# ALLOWED_EMAIL_DOMAINS=rajalakshmi.edu.in
+# SESSION_HOURS=8

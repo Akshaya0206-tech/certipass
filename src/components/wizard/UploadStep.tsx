@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 import type { DragEvent } from 'react'
-import { Check, FileText, ImageIcon, Info, Loader2, Trash2, UploadCloud } from 'lucide-react'
+import { Check, FileText, ImageIcon, Info, Loader2, Lock, Trash2, UploadCloud } from 'lucide-react'
 import { cn } from '../../lib/cn'
+import type { StorageAvailability } from '../../services/certificateStorage'
 import { ACCEPTED_LABEL, ACCEPTED_TYPES, ACCEPT_ATTRIBUTE, FILE_RULES, formatBytes } from '../../services/fileService'
 import type { CertificateFile, CertificateFileType } from '../../types'
 import { CertificatePreview } from '../CertificatePreview'
@@ -28,9 +29,11 @@ interface UploadStepProps {
   existing?: CertificateFile
   /** A file named in a saved draft that could not be restored. */
   missingFromDraft?: Pick<CertificateFile, 'fileName' | 'sizeBytes'>
+  /** Whether submitting uploads the file to real storage, or this is the prototype. */
+  storage?: StorageAvailability
 }
 
-export function UploadStep({ selected, checking, error, onChoose, onRemove, eventName, existing, missingFromDraft }: UploadStepProps) {
+export function UploadStep({ selected, checking, error, onChoose, onRemove, eventName, existing, missingFromDraft, storage = 'unconfigured' }: UploadStepProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const browse = () => inputRef.current?.click()
@@ -80,7 +83,7 @@ export function UploadStep({ selected, checking, error, onChoose, onRemove, even
         <div role="status" className="flex flex-col items-center rounded-xl border border-line bg-parchment/40 px-6 py-10 text-center">
           <Loader2 className="size-7 animate-spin text-navy-700" aria-hidden />
           <p className="mt-3 font-medium text-navy-900">Checking the file on this device…</p>
-          <p className="mt-1 text-[13px] text-ink-muted">Reading its type and size. Nothing is being uploaded.</p>
+          <p className="mt-1 text-[13px] text-ink-muted">Reading its type and size. Nothing is uploaded until you submit.</p>
           <div className="mt-4 h-1 w-48 overflow-hidden rounded-full bg-parchment-deep" aria-hidden>
             <div className="h-full w-1/2 animate-pulse rounded-full bg-navy-700" />
           </div>
@@ -147,8 +150,23 @@ export function UploadStep({ selected, checking, error, onChoose, onRemove, even
         </div>
       )}
 
+      {storage === 'ready' ? (
+        <p className="flex items-start gap-2 text-[12px] text-ink-muted">
+          <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+          <span>
+            When you submit, this file is uploaded to the college’s private Google Drive and checked again on the server. It is never public: only you and faculty for your
+            department can open it. You can’t be marked as submitted until the upload has finished.
+          </span>
+        </p>
+      ) : (
+        <p className="text-[12px] text-ink-muted">
+          Prototype note: certificate storage isn’t connected in this build. The file stays in this browser tab for preview and checking; it is not uploaded or stored, and the
+          checks here don’t replace server-side scanning.
+        </p>
+      )}
       <p className="text-[12px] text-ink-muted">
-        Prototype note: the file stays in this browser tab for preview and checking. It is not uploaded or stored, and the checks here don’t replace server-side scanning.
+        A saved draft keeps your answers and the file’s name, type and size, but <span className="font-medium text-ink-soft">not the file itself</span> — drafts don’t store
+        certificates. You’ll attach the file again when you come back to finish.
       </p>
     </div>
   )

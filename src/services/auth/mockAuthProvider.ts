@@ -24,7 +24,7 @@ export const mockAuthProvider: AuthProvider = {
     const ok = await verifyPassword(user?.id, password)
 
     if (!user || !ok) {
-      throw new AuthError('invalid_credentials', 'That username and password combination wasn’t recognised. Check both and try again.')
+      throw new AuthError('invalid_credentials', 'That email or username and password combination wasn’t recognised. Check both and try again.')
     }
     // The password was correct, so it's safe (and kinder) to say which page to use.
     if (user.role !== expectedRole) {
@@ -47,7 +47,7 @@ export const mockAuthProvider: AuthProvider = {
 
     const { users } = getState()
     if (users.some((u) => u.username.toLowerCase() === input.username)) {
-      throw new AuthError('duplicate_username', 'This username is already taken. Try another.', { field: 'username' })
+      throw new AuthError('duplicate_username', 'This email or username is already taken. Try another.', { field: 'username' })
     }
     if (users.some((u) => u.role === 'student' && u.registerNumber === input.registerNumber)) {
       throw new AuthError('duplicate_register_number', 'An account with this register number already exists. If it’s yours, sign in instead.', {

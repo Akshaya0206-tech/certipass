@@ -9,9 +9,9 @@ CertiPass is a digital achievement passport for colleges: students submit certif
 - **Phase 5** adds faculty verification and communication: a scoped review queue, a full review page, enforced status transitions (start review, request correction, verify, reopen), typed comments, a detailed review history, and student notifications for every review action.
 - **Phase 6** adds admin management and analytics: an overview dashboard, user and faculty management (including creating faculty accounts), academic configuration, a central achievement register, analytics with stated calculation rules, CSV export and an activity feed.
 
-Everything runs in the browser. There is no backend, Supabase, or email of any kind.
+By default everything runs in the browser, with no backend or email. Optionally the app can connect to its own backend, a Cloudflare Worker in [`worker/`](worker), for real accounts and for storing certificates in a private Google Drive folder (see below). There is no email of any kind.
 
-> **Development prototype — not secure.** Sign-in is simulated in the browser. It shows how the flows will work, but it does not protect anything. Don't enter real passwords or personal data.
+> **Development prototype — not secure by default.** Unless it is connected to the backend, sign-in is simulated in the browser. It shows how the flows will work, but it does not protect anything. Don't enter real passwords or personal data.
 
 ## Run it
 
@@ -25,6 +25,21 @@ npm run preview    # serve the production build (http://localhost:4173)
 ```
 
 Open the app on `localhost` or over HTTPS. Password hashing uses the browser's Web Crypto API, which browsers only enable in a secure context. On a plain-HTTP LAN address (e.g. `http://192.168.x.x:5173`), sign-in shows an explanatory error instead.
+
+## The backend: accounts and certificate storage
+
+The backend is one Cloudflare Worker ([`worker/`](worker)) with its own database (Cloudflare D1, SQLite) and no other service. It provides:
+
+* **Real accounts and sign-in.** Email + password, hashed with PBKDF2 and a server-side secret; sessions are random tokens stored only as hashes; brute-force lockouts; students register themselves and wait for an administrator to approve them; administrators create and manage faculty and administrator accounts. Roles are decided by the Worker's database on every request, never by what the browser says. See [docs/BACKEND_SETUP.md](docs/BACKEND_SETUP.md).
+* **Certificate storage in a private, college-controlled Google Drive folder.** Students upload on the **My Certificates** page (title, category, issuing organisation, issue date, file; with a progress bar), and preview and download their own. Faculty get a **Certificates** page (search by student name or ID; filter by department, batch and category; preview and download) limited to the departments they review. Administrators get the same for everyone, plus removal and upload statistics, and can browse the folder in Google Drive. Files are organised `CertiPass / year / department / student ID / Certificates` and are never public. See [docs/GOOGLE_DRIVE_SETUP.md](docs/GOOGLE_DRIVE_SETUP.md).
+Without `VITE_CERT_API_URL` nothing changes: the app is the offline prototype described below, certificates are checked in the browser and not stored, and the
+View Certificate modal says plainly that storage isn't set up. Setting `VITE_CERT_API_URL` to the Worker's address switches on real sign-in **and** certificate storage together.
+**Status:** the Google Drive integration has been tested against the real folder, and the Worker has been run locally with its database; it has **not** been deployed, and the app's achievements are still stored per browser, so it is not ready for real student records.
+
+```bash
+npm test                 # frontend tests
+cd worker && npm test    # Worker, access-control and SQL tests
+```
 
 ## Demo accounts (development only, fictional)
 
@@ -474,12 +489,14 @@ The app opens on the sign-in screen; there is no public landing page.
 ```
 src/services/auth/
   types.ts             AuthProvider interface + AuthError (codes, field, portal)
-  mockAuthProvider.ts  Mock implementation of AuthProvider
+  mockAuthProvider.ts  Mock implementation of AuthProvider (the default)
+  workerAuthProvider.ts  Sign-in against the CertiPass Worker: real accounts, session token, remembered-session check
+  backend.ts           Typed client for the Worker's account API, session-token storage, Worker user → app user
   credentials.ts       Password hashing / verification (PBKDF2-SHA-256 via Web Crypto)
   session.ts           Minimal persisted session: read / validate / start / end / expire
   validation.ts        Registration rules shared by the form and the provider
   recovery.ts          Account-recovery seam (no mechanism yet)
-  index.ts             Public entry point; `authProvider` = mockAuthProvider
+  index.ts             Public entry point; `authProvider` = mock, or the Worker when VITE_CERT_API_URL is set
 src/context/AuthContext.tsx   useAuth(): currentUser, currentRole, isAuthenticated,
                               login(username, password, expectedRole), registerStudent(data),
                               logout(), getCurrentUser()
@@ -487,7 +504,7 @@ src/layouts/RequireRole.tsx   RequireRole (role guard) and GuestOnly (sign-in pa
 src/services/profileService.ts  Self-service profile edits with per-role field whitelists
 ```
 
-Pages never call the provider directly. They use `useAuth()`. A real provider (e.g. Supabase Auth) implements the same `AuthProvider` interface and replaces the single assignment in `services/auth/index.ts`.
+Pages never call the provider directly. They use `useAuth()`. The Worker provider implements the same `AuthProvider` interface and is selected in `services/auth/index.ts` only when the build is connected to the Worker (`VITE_CERT_API_URL`); setup is in [docs/BACKEND_SETUP.md](docs/BACKEND_SETUP.md). The app's other records still live in the browser.
 
 ### Behaviour
 
@@ -705,11 +722,11 @@ src/
   - creating administrator accounts, and changing or resetting any password (including a new faculty member's initial one),
   - editing identity fields (username, register number, department),
   - deleting or withdrawing a submitted achievement (drafts can be deleted).
-- **Files aren't uploaded.** Certificates (including replacements when resubmitting) are checked in the browser.
+- **Files aren't uploaded in the default (prototype) setup.** When connected to the Worker, certificates go to the college's private Google Drive instead (see "The backend"); the points below describe the prototype setup. Certificates (including replacements when resubmitting) are checked in the browser.
   - Only metadata is kept, plus a small inline preview for images up to about 900 KB.
   - Submitted PDFs and larger images can't be viewed again after the wizard closes, by the student or by faculty.
   - Seeded records without a bundled demo file have no viewable certificate.
-  - Real storage (Supabase Storage) is planned for Phase 7; `storeCertificate` is the one function to replace.
+  - Real storage is Google Drive through the Cloudflare Worker in `/worker`; `storeCertificate` remains the offline prototype's stand-in.
 - **Drafts don't keep the file.** A browser can't restore a selected file after a refresh, so the wizard asks for it again.
 - **File checks aren't security.** Extension, MIME type and signature checks run in the browser; a server must re-validate and scan uploads.
 - **The duplicate check is a hint.** It compares only the student's own records in this browser.
@@ -728,9 +745,9 @@ src/
 
 The following are deferred to later phases:
 
-- Supabase, the database schema and real authentication
+- moving achievements, reviews and comments into the Worker's database (accounts and certificate files are already there)
 - email/SMTP and email verification
 - production password recovery
-- cloud file storage
+- self-service password recovery (needs an email service)
 - backend access-control policies
 - deployment configuration

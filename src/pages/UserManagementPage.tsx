@@ -87,7 +87,7 @@ export default function UserManagementPage() {
       hideBelow: 'lg',
     },
     { key: 'created', header: 'Created', render: (u) => <span className="whitespace-nowrap text-ink-soft">{formatDate(u.createdAt)}</span>, hideBelow: 'lg' },
-    { key: 'status', header: 'Status', render: (u) => <AccountStatusLabel active={u.active} /> },
+    { key: 'status', header: 'Status', render: (u) => <AccountStatusLabel active={u.active} pending={u.pending} /> },
     { key: 'action', header: <span className="sr-only">Action</span>, align: 'right', hideBelow: 'sm', render: (u) => <AccountStatusButton user={u} /> },
   ]
 

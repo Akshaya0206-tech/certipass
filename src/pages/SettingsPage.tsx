@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Database, FileCheck2, RotateCcw, ShieldAlert } from 'lucide-react'
+import { DriveStorageSettings } from '../components/admin/DriveStorage'
 import { Button } from '../components/ui/Button'
 import { Dialog } from '../components/ui/Dialog'
 import { PageHeader } from '../components/ui/PageHeader'
 import { useToast } from '../context/ToastContext'
 import { useAchievements, useRequiredUser, useUsers } from '../hooks/useData'
-import { ACCEPTED_TYPES, MAX_FILE_BYTES, formatBytes } from '../services/fileService'
 import { recordAudit } from '../services/auditService'
 import { resetDemoData } from '../services/store'
 
@@ -38,12 +38,7 @@ export default function SettingsPage() {
 
         <div className="flex gap-4 p-5">
           <FileCheck2 className="mt-0.5 size-5 shrink-0 text-navy-700" aria-hidden />
-          <div>
-            <h2 className="font-medium text-navy-900">Certificate files</h2>
-            <p className="mt-1 text-sm text-ink-soft">
-              Accepted formats: {Object.values(ACCEPTED_TYPES).join(', ')}. Maximum size: {formatBytes(MAX_FILE_BYTES)}. Files are validated in the browser only; storage is not connected in this prototype.
-            </p>
-          </div>
+          <DriveStorageSettings />
         </div>
 
         <div className="flex gap-4 p-5">

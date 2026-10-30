@@ -12,6 +12,8 @@ import { getFacultyRecords, RECORD_SORT_OPTIONS } from '../services/facultyServi
 import type { FacultyRecordRow, RecordSort } from '../services/facultyService'
 import { useStore } from '../services/store'
 import type { AchievementCategory } from '../types'
+import { CertificateViewerDialog, ViewCertificateButton } from './CertificateViewer'
+import type { ViewerTarget } from './CertificateViewer'
 import { DataTable } from './ui/DataTable'
 import type { Column } from './ui/DataTable'
 import { FilterBar, FilterSelect, SearchInput } from './ui/Filters'
@@ -81,6 +83,7 @@ export function FacultyRecordsTable({
   const [year, setYear] = useState('all')
   const [batchFilter, setBatchFilter] = useState('all')
   const [sort, setSort] = useState<RecordSort>(defaultSort)
+  const [viewing, setViewing] = useState<ViewerTarget | null>(null)
 
   // A fixed result or batch comes from the page and can't be filtered away.
   const fixed = useMemo(() => ({ result, batch }), [result, batch])
@@ -180,20 +183,38 @@ export function FacultyRecordsTable({
       header: <span className="sr-only">Action</span>,
       align: 'right',
       render: (r) => (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            navigate(hrefFor(r.achievement.id))
-          }}
-          className="inline-flex h-8 items-center gap-1 rounded-lg border border-line-strong bg-white px-2.5 text-[13px] font-medium whitespace-nowrap text-navy-900 hover:border-navy-700"
-        >
-          Open
-          <ArrowRight className="size-3.5" aria-hidden />
-          <span className="sr-only">
-            : {r.achievement.eventName} by {r.studentName}
-          </span>
-        </button>
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
+          <ViewCertificateButton
+            certificate={r.achievement.certificate}
+            label={`${r.achievement.eventName} by ${r.studentName}`}
+            onOpen={() =>
+              setViewing({
+                achievementId: r.achievement.id,
+                studentId: r.achievement.studentId,
+                eventName: r.achievement.eventName,
+                reference: r.achievement.reference,
+                certificate: r.achievement.certificate,
+                studentName: r.studentName,
+                registerNumber: r.registerNumber,
+                department: r.department,
+              })
+            }
+          />
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              navigate(hrefFor(r.achievement.id))
+            }}
+            className="inline-flex h-8 items-center gap-1 rounded-lg border border-line-strong bg-white px-2.5 text-[13px] font-medium whitespace-nowrap text-navy-900 hover:border-navy-700"
+          >
+            Open
+            <ArrowRight className="size-3.5" aria-hidden />
+            <span className="sr-only">
+              : {r.achievement.eventName} by {r.studentName}
+            </span>
+          </button>
+        </div>
       ),
     },
   ]
@@ -288,6 +309,7 @@ export function FacultyRecordsTable({
           />
         }
       />
+      <CertificateViewerDialog target={viewing} onClose={() => setViewing(null)} />
     </div>
   )
 }

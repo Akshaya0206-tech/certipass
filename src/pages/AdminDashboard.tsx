@@ -59,7 +59,19 @@ export default function AdminDashboard() {
           caption="Institutional totals"
           items={[
             { label: 'Total Students', value: overview.totalStudents, icon: GraduationCap, note: `${overview.activeStudents} active` },
-            { label: 'Total Faculty', value: overview.totalFaculty, icon: UserCog, note: `${overview.activeFaculty} active` },
+            {
+              label: 'Total Faculty',
+              value: overview.totalFaculty,
+              icon: UserCog,
+              note: (
+                <>
+                  {overview.activeFaculty} active ·{' '}
+                  <Link to="/admin/faculty" className="font-medium text-navy-800 underline underline-offset-2">
+                    Manage faculty
+                  </Link>
+                </>
+              ),
+            },
             { label: 'Achievement Records', value: overview.totalRecords, icon: Files, note: `${overview.recent} in the last 30 days` },
             { label: 'Winners', value: overview.winner, icon: Award, tone: 'navy', note: `${formatRate(getAwardRate(achievements))} of records awarded` },
             { label: 'Runners-up', value: overview.runner_up, icon: Medal, tone: 'lavender' },

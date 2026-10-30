@@ -8,7 +8,7 @@ export default function StudentLoginPage() {
   const [forgotOpen, setForgotOpen] = useState(false)
 
   return (
-    <AuthLayout role="student" title="Welcome to CertiPass" subtitle="Sign in with your username to open your achievement passport.">
+    <AuthLayout role="student" title="Welcome to CertiPass" subtitle="Sign in with your college email to open your achievement passport.">
       <LoginForm
         role="student"
         beforeSubmit={

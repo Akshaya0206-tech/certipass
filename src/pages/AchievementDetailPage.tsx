@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Eye, FilePen, FilePlus2, SearchX } from 'lucide-react'
-import { certificateSource, CertificatePreview } from '../components/CertificatePreview'
+import { certificateSource, CertificatePreview, isStoredCertificate } from '../components/CertificatePreview'
 import { CommentThread } from '../components/CommentThread'
 import { PassportLoader } from '../components/passport/PassportLoader'
 import { DetailList, StatusHistory } from '../components/RecordDetails'
@@ -50,7 +50,7 @@ function Detail() {
 
   const meta = STATUS_META[a.status]
   const editable = canStudentEdit(a.status)
-  const hasCertificate = !!certificateSource(a.certificate)
+  const hasCertificate = !!certificateSource(a.certificate) || isStoredCertificate(a.certificate)
 
   return (
     <div className="space-y-8">

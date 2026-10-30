@@ -8,6 +8,8 @@ export type AuthErrorCode =
   | 'duplicate_register_number'
   | 'invalid_input'
   | 'unavailable'
+  /** The account exists but an administrator has not approved it yet (after registering, or at sign-in). */
+  | 'pending_approval'
 
 export class AuthError extends Error {
   readonly code: AuthErrorCode
@@ -27,7 +29,7 @@ export class AuthError extends Error {
 
 /**
  * The contract the UI depends on. Phase 2 ships a mock implementation;
- * a real provider (e.g. Supabase Auth) replaces it without UI changes.
+ * the real provider (workerAuthProvider, which talks to the CertiPass Worker) replaces it without UI changes.
  */
 export interface AuthProvider {
   /** Verify credentials and start a session, but only for `expectedRole`. */

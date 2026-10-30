@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ExternalLink, FileWarning, Files, SearchX, UserRound } from 'lucide-react'
-import { certificateSource, CertificatePreview, hasCertificate } from '../components/CertificatePreview'
+import { certificateSource, CertificatePreview, hasCertificate, isStoredCertificate } from '../components/CertificatePreview'
 import { CommentThread } from '../components/CommentThread'
 import { DetailList } from '../components/RecordDetails'
 import { Breadcrumbs } from '../components/ui/Breadcrumbs'
@@ -70,8 +70,9 @@ export default function FacultyRecordDetailPage() {
   const a = achievement
   const batch = batchCodeOf(student)
   const certificatePresent = hasCertificate(a.certificate)
+  // A bundled demo file has a plain link; a certificate in Drive is opened (and downloaded) from the preview itself.
   const certificateHref = certificateSource(a.certificate)
-  const previewAvailable = certificatePresent && !!certificateHref
+  const previewAvailable = certificatePresent && (!!certificateHref || isStoredCertificate(a.certificate))
 
   return (
     <div className="space-y-8">
@@ -100,7 +101,7 @@ export default function FacultyRecordDetailPage() {
           <ButtonLink to={`/faculty/students?q=${encodeURIComponent(student.registerNumber || student.username)}`} variant="secondary" icon={<UserRound className="size-4" aria-hidden />}>
             View Student Profile
           </ButtonLink>
-          {previewAvailable && (
+          {previewAvailable && certificateHref && (
             <a
               href={certificateHref}
               target="_blank"

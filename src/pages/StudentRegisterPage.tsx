@@ -10,7 +10,7 @@ import { useAcademicConfig } from '../hooks/useAcademics'
 import { AuthLayout } from '../layouts/AuthLayout'
 import { cn } from '../lib/cn'
 import { activeDepartments, activeSections } from '../services/academicService'
-import { AuthError, PASSWORD_RULES, toRegistration, validateRegistration } from '../services/auth'
+import { AuthError, PASSWORD_RULES, toRegistration, usesBackendAuth, validateRegistration } from '../services/auth'
 import type { StudentRegistrationForm } from '../services/auth'
 
 type FormState = StudentRegistrationForm
@@ -62,6 +62,12 @@ export default function StudentRegisterPage() {
       toast.success('Account created', `Welcome to CertiPass, ${user.fullName.split(' ')[0]}. You’re signed in.`)
       navigate('/student', { replace: true })
     } catch (err) {
+      if (err instanceof AuthError && err.code === 'pending_approval') {
+        // Not a failure: the account exists and just needs the records office to approve it before first sign-in.
+        toast.success('Registration received', err.message)
+        navigate('/login', { replace: true })
+        return
+      }
       if (err instanceof AuthError && err.field) {
         setErrors({ [err.field]: err.message, form: 'Please fix the highlighted fields.' })
         requestAnimationFrame(() => document.querySelector<HTMLElement>('form [aria-invalid="true"]')?.focus())
@@ -76,7 +82,7 @@ export default function StudentRegisterPage() {
     <AuthLayout
       wide
       title="Create your student account"
-      subtitle="It takes a minute. You’ll use your username — not an email — to sign in."
+      subtitle="It takes a minute. You’ll sign in with your college email."
     >
       <form onSubmit={onSubmit} noValidate className="space-y-8">
         {errors.form && (
@@ -92,7 +98,7 @@ export default function StudentRegisterPage() {
             <TextInput autoComplete="name" value={form.fullName} onChange={(e) => set('fullName', e.target.value)} onBlur={blur('fullName')} />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Register Number" required error={show('registerNumber')} hint="e.g. 2024CSE0123">
+            <Field label="Register Number" required error={show('registerNumber')} hint="Exactly as printed on your ID card">
               <TextInput
                 value={form.registerNumber}
                 onChange={(e) => set('registerNumber', e.target.value.toUpperCase())}
@@ -136,9 +142,10 @@ export default function StudentRegisterPage() {
         <div className="border-t border-line pt-7">
         <fieldset className="space-y-4">
           <legend className="label-archival mb-4">02 · Sign-in details</legend>
-          <Field label="Username" required error={show('username')} hint="Lowercase letters, numbers, dots or underscores.">
+          <Field label="College email" required error={show('username')} hint="Your @rajalakshmi.edu.in address, e.g. name.2024.dept@rajalakshmi.edu.in">
             <TextInput
               autoComplete="username"
+              inputMode="email"
               autoCapitalize="none"
               spellCheck={false}
               value={form.username}
@@ -173,7 +180,7 @@ export default function StudentRegisterPage() {
 
         <div className="space-y-4 border-t border-line pt-6">
           <p className="text-[12.5px] text-ink-muted">
-            <span className="text-terracotta-600">*</span> Required field. This prototype stores your details only in this browser.
+            <span className="text-terracotta-600">*</span> Required field.{!usesBackendAuth && ' This prototype stores your details only in this browser.'}
           </p>
           <Button type="submit" size="lg" className="w-full sm:w-auto" loading={loading} icon={<UserPlus className="size-4" aria-hidden />}>
             Create Account

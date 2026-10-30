@@ -5,7 +5,7 @@ import { CircleAlert, KeyRound, LogIn } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { DEMO_CREDENTIALS } from '../data/mockData'
-import { AuthError, homePathFor, loginPathFor } from '../services/auth'
+import { AuthError, homePathFor, loginPathFor, usesBackendAuth } from '../services/auth'
 import type { Role } from '../types'
 import { Button } from './ui/Button'
 import { Field, PasswordInput, TextInput } from './ui/FormField'
@@ -35,7 +35,7 @@ export function LoginForm({ role, beforeSubmit, footer }: LoginFormProps) {
 
   function validate(): Errors {
     const e: Errors = {}
-    if (!username.trim()) e.username = 'Enter your username.'
+    if (!username.trim()) e.username = 'Enter your college email or username.'
     if (!password) e.password = 'Enter your password.'
     return e
   }
@@ -83,11 +83,12 @@ export function LoginForm({ role, beforeSubmit, footer }: LoginFormProps) {
           </div>
         </div>
       )}
-      <Field label="Username" required error={errors.username}>
+      <Field label="College email or username" required error={errors.username}>
         <TextInput
           readOnly={loading}
           name="username"
           autoComplete="username"
+          inputMode="email"
           autoCapitalize="none"
           spellCheck={false}
           value={username}
@@ -115,7 +116,7 @@ export function LoginForm({ role, beforeSubmit, footer }: LoginFormProps) {
       </Button>
       {footer}
 
-      {import.meta.env.DEV && (
+      {import.meta.env.DEV && !usesBackendAuth && (
         <aside className="rounded-md border border-dashed border-lavender-300 bg-lavender-50 px-4 py-3 text-[13px]">
           <p className="flex items-center gap-2 font-medium text-lavender-700">
             <KeyRound className="size-3.5" aria-hidden />

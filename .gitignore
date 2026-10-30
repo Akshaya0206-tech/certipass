@@ -3,3 +3,11 @@ dist
 *.local
 .DS_Store
 .vite
+# Secrets and local configuration. Never commit real credentials.
+.dev.vars
+.env
+.env.*
+!.env.example
+.wrangler
+*.pem
+*refresh-token*

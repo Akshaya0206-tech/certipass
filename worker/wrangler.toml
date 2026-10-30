@@ -1,0 +1,39 @@
+name = "certipass"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+# Non-secret settings only. Secrets are set with `wrangler secret put` (see docs/BACKEND_SETUP.md)
+# and never written in this file.
+[vars]
+# Exact origins allowed to call the API, comma separated. No wildcard. Replace with your real site before deploying.
+ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:4173"
+GOOGLE_AUTH_MODE = "oauth"
+PENDING_STALE_MINUTES = "10"
+# "open": a student who registers can sign in straight away. "approval": each new student waits for an administrator.
+REGISTRATION_MODE = "open"
+# Only email addresses on these domains can have an account (comma separated).
+ALLOWED_EMAIL_DOMAINS = "rajalakshmi.edu.in"
+# How long a sign-in lasts.
+SESSION_HOURS = "8"
+
+# Accounts, sessions and certificate records live in Cloudflare D1 (SQLite).
+#   npx wrangler d1 create certipass        -> copy the database_id it prints into the line below
+#   npm run db:migrate:local                -> create the tables for `npm run dev`
+#   npm run db:migrate:remote               -> create the tables in the deployed database
+[[d1_databases]]
+binding = "DB"
+database_name = "certipass"
+# Placeholder: fine for local development, which keeps its own copy. Replace before deploying.
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+# Every 15 minutes: adopt or fail interrupted uploads, clear flagged Drive files, forget old sessions.
+[triggers]
+crons = ["*/15 * * * *"]
+
+# Secrets (set with `wrangler secret put <NAME>`):
+#   AUTH_PEPPER                 at least 32 random characters; mixed into every password hash. CHANGING IT LOCKS EVERYONE OUT.
+#   SETUP_TOKEN                 one-time secret for creating the first administrator (`npm run admin:create`)
+#   GOOGLE_DRIVE_ROOT_FOLDER_ID
+#   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_REFRESH_TOKEN
+#   (or, for a Shared Drive: GOOGLE_AUTH_MODE=service_account, GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY)

@@ -3,7 +3,7 @@
  *
  * Files are checked and previewed in browser memory only. Nothing is
  * uploaded: `storeCertificate` returns metadata (plus a small inline preview
- * for images), never a download link. When real storage arrives (Supabase
+ * for images), never a download link. When real storage arrives (Google Drive through the Worker
  * Storage, Phase 7) `storeCertificate` is the single function to replace;
  * callers already treat it as asynchronous.
  *

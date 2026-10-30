@@ -61,6 +61,8 @@ export interface AcademicConfig {
 
 export type AuditAction =
   | 'faculty_created'
+  | 'faculty_password_reset'
+  | 'faculty_deleted'
   | 'record_archived'
   | 'record_restored'
   | 'account_activated'
@@ -89,6 +91,8 @@ interface BaseUser {
   department: string
   createdAt: string
   active: boolean
+  /** Registered, and waiting for an administrator to approve the account. Only ever set by the CertiPass server. */
+  pending?: boolean
 }
 
 export interface StudentUser extends BaseUser {
@@ -144,17 +148,23 @@ export type ProfileUpdate = StudentProfileUpdate | StaffProfileUpdate | AdminPro
 export type CertificateFileType = 'application/pdf' | 'image/jpeg' | 'image/png'
 
 /**
- * What the prototype knows about a certificate: metadata only, plus an
- * optional preview source. It never contains the original file.
+ * What the app knows about a certificate: metadata only, plus an optional
+ * preview source. It never contains the original file.
  */
 export interface CertificateFile {
   fileName: string
   fileType: CertificateFileType
   sizeBytes: number
-  /** Data URL for small images uploaded in this browser. */
+  /** Data URL for small images uploaded in this browser (prototype storage only). */
   previewDataUrl?: string
   /** Bundled demo asset (public/demo-certificates) for seeded records that have one. */
   previewUrl?: string
+  /**
+   * Present when the real file is in the college's Google Drive. `certificateId`
+   * is the storage service's own id for it, not a Drive id or a link: the file
+   * can only be fetched through the authenticated storage API.
+   */
+  storage?: { provider: 'drive'; certificateId: string }
 }
 export type CertificateFileMetadata = CertificateFile
 

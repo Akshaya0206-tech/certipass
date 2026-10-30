@@ -1,13 +1,31 @@
 /*
  * Public entry point for authentication. The rest of the app imports from
- * here (usually via AuthContext), never from the mock implementation.
- * To switch providers, change the single assignment below.
+ * here (usually via AuthContext), never from a provider directly.
+ *
+ * Offline, the prototype's local sign-in is used, exactly as before. When the
+ * build is connected to the CertiPass Worker (VITE_CERT_API_URL), sign-in goes
+ * through it instead: real accounts, real passwords, and a session token that
+ * the Worker checks on every request. That same token is what lets the browser
+ * upload and read certificates stored in Google Drive.
  */
 import type { Role } from '../../types'
+import { registerAccessTokenProvider } from './accessToken'
+import { backendEnabled } from './backend'
 import { mockAuthProvider } from './mockAuthProvider'
+import { createWorkerAuthProvider } from './workerAuthProvider'
 import type { AuthProvider } from './types'
 
-export const authProvider: AuthProvider = mockAuthProvider
+/** True when sign-in goes through the CertiPass Worker rather than the prototype's local accounts. */
+export const usesBackendAuth = backendEnabled()
+
+function selectProvider(): AuthProvider {
+  if (!usesBackendAuth) return mockAuthProvider
+  const provider = createWorkerAuthProvider()
+  registerAccessTokenProvider(provider.getAccessToken)
+  return provider
+}
+
+export const authProvider: AuthProvider = selectProvider()
 
 export { AuthError } from './types'
 export type { AuthErrorCode, AuthProvider } from './types'

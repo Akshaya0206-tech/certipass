@@ -15,7 +15,9 @@ import {
   validateStep,
   WIZARD_STEPS,
 } from '../../services/achievementValidation'
+import { CertificateStorageError, storageAvailability, uploadCertificate } from '../../services/certificateStorage'
 import { ACCEPTED_LABEL, FILE_RULES, formatBytes, inspectCertificateFile, storeCertificate } from '../../services/fileService'
+import { createId } from '../../services/store'
 import {
   createDraft,
   getPossibleDuplicates,
@@ -24,12 +26,13 @@ import {
   updateAndRecordEdit,
   updateDraft,
 } from '../../services/submissionService'
-import type { Achievement, AchievementDraft, AchievementFormData, FormField, ValidationError } from '../../types'
+import type { Achievement, AchievementDraft, AchievementFormData, CertificateFile, FormField, ValidationError } from '../../types'
 import { Breadcrumbs } from '../ui/Breadcrumbs'
 import { Button } from '../ui/Button'
 import { Dialog } from '../ui/Dialog'
 import { PageHeader } from '../ui/PageHeader'
 import { ReviewStep } from './ReviewStep'
+import { UploadFailureNotice } from './UploadFailureNotice'
 import { UploadStep } from './UploadStep'
 import type { SelectedFile } from './UploadStep'
 import { AdditionalStep, CategoryStep, EventStep, ResultStep } from './WizardSteps'
@@ -82,8 +85,18 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
   const [duplicates, setDuplicates] = useState<Achievement[]>([])
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  /** While submitting: whether the file is still travelling to storage or the record is being saved. */
+  const [stage, setStage] = useState<'uploading' | 'saving'>('saving')
+  /** Set when the certificate could not reach storage; cleared by the next attempt. */
+  const [uploadFailure, setUploadFailure] = useState<string | null>(null)
+  /** Whether the last attempt had the duplicate warning acknowledged, so Retry repeats it faithfully. */
+  const lastConfirmed = useRef(false)
   const [exitOpen, setExitOpen] = useState(false)
   const inFlight = useRef(false)
+  // A new record's id is fixed up front so the file can be uploaded under it before the record exists.
+  const newAchievementId = useRef(createId('ach'))
+  // One id per chosen file: every retry of the same upload reuses it, so a retry can never store the file twice.
+  const uploadId = useRef(crypto.randomUUID())
   const headingRef = useRef<HTMLHeadingElement>(null)
 
   const hasCertificate = !!selected || !!editing
@@ -210,6 +223,7 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
       setFileError(result.message)
       return
     }
+    uploadId.current = crypto.randomUUID()
     setSelected({ file, type: result.type, objectUrl: URL.createObjectURL(file) })
     setDuplicates([])
   }
@@ -234,12 +248,29 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
       }
     }
     inFlight.current = true
+    lastConfirmed.current = confirmedDuplicates
+    setUploadFailure(null)
     setSubmitting(true)
     try {
-      const certificate = selected ? await storeCertificate(selected.file, selected.type) : undefined
+      let certificate: CertificateFile | undefined
+      if (selected && storageAvailability() === 'ready') {
+        // Real storage: the file must reach Google Drive and be recorded BEFORE the achievement is saved.
+        // If this throws, nothing is saved and the student can simply press Submit again.
+        setStage('uploading')
+        const stored = await uploadCertificate({
+          achievementId: editing ? editing.id : newAchievementId.current,
+          uploadId: uploadId.current,
+          category: form.category,
+          file: selected.file,
+        })
+        certificate = { fileName: stored.fileName, fileType: selected.type, sizeBytes: stored.sizeBytes, storage: { provider: 'drive', certificateId: stored.id } }
+      } else if (selected) {
+        certificate = await storeCertificate(selected.file, selected.type)
+      }
+      setStage('saving')
       const result = editing
         ? await updateAndRecordEdit(student.id, editing.id, form, { certificate, note })
-        : await submitAchievement(student.id, form, certificate, { draftId: draft?.id })
+        : await submitAchievement(student.id, form, certificate, { draftId: draft?.id, achievementId: newAchievementId.current })
       toast.success(
         editing ? 'Changes saved' : 'Certificate submitted',
         editing ? `${result.reference} has been updated.` : `${result.reference} has been added to your passport.`,
@@ -250,7 +281,13 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
         setAttempted(new Set([0, 1, 2, 3, 4]))
         setStep(err.errors[0].step)
       }
-      toast.error(editing ? 'Changes not saved' : 'Submission failed', err instanceof Error ? err.message : 'Please try again.')
+      if (err instanceof CertificateStorageError) {
+        // The record was not saved. Retry reuses the same upload reference, so it can never store the file twice.
+        setUploadFailure(err.message)
+        toast.error('Certificate not uploaded', 'Nothing was submitted. You can retry from the review step.')
+      } else {
+        toast.error(editing ? 'Changes not saved' : 'Submission failed', err instanceof Error ? err.message : 'Please try again.')
+      }
       setSubmitting(false)
       inFlight.current = false
     }
@@ -343,6 +380,7 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
               eventName={form.eventName}
               existing={editing?.certificate}
               missingFromDraft={lastSavedMissingFile}
+              storage={storageAvailability()}
             />
           )}
           {isReview &&
@@ -370,6 +408,8 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
               </div>
             ))}
 
+          {isReview && uploadFailure && <UploadFailureNotice message={uploadFailure} retrying={submitting} onRetry={() => submit(lastConfirmed.current)} />}
+
           <div className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
             <Button variant="ghost" onClick={back} disabled={step === 0 || submitting} icon={<ArrowLeft className="size-4" aria-hidden />}>
               Back
@@ -393,7 +433,7 @@ export function SubmissionWizard({ mode, onDraftCreated }: SubmissionWizardProps
                   disabled={!reviewCertificate || duplicates.length > 0}
                   icon={editing ? <Send className="size-4" aria-hidden /> : <Check className="size-4" aria-hidden />}
                 >
-                  {submitting ? 'Submitting…' : editing ? 'Resubmit Certificate' : 'Submit Certificate'}
+                  {submitting ? (stage === 'uploading' ? 'Uploading certificate…' : 'Submitting…') : editing ? 'Resubmit Certificate' : 'Submit Certificate'}
                 </Button>
               ) : (
                 <Button onClick={next} disabled={checking} iconRight={<ArrowRight className="size-4" aria-hidden />}>
